@@ -350,7 +350,21 @@ export const ko: Translations = {
       'stt.enabled': '로컬 또는 제공자를 통해 음성 인식을 활성화합니다.',
       'stt.elevenlabs.language_code': '선택적 ISO-639-3 코드입니다. 비워두면 ElevenLabs가 자동 감지합니다.',
       'agent.max_turns': 'Hermes가 실행을 멈추기 전까지 허용되는 도구 루프의 최대 반복 횟수입니다.',
-      'memory.provider': '메모리 제공자 플러그인'
+      'memory.provider': '메모리 제공자 플러그인',
+      'terminal.backend': '터미널 실행 백엔드',
+      'terminal.modal_mode': 'Modal 샌드박스 모드',
+      'tts.provider': '텍스트 음성 변환(TTS) 제공자',
+      'stt.provider': '음성 인식(STT) 제공자',
+      'stt.elevenlabs.model_id': 'ElevenLabs Scribe 모델',
+      'display.skin': 'CLI 시각적 테마',
+      'dashboard.theme': '웹 대시보드 시각적 테마',
+      'display.resume_display': '재개된 세션의 과거 기록 표시 방식',
+      'display.busy_input_mode': '에이전트 실행 중 입력 동작 방식',
+      'human_delay.mode': '타이핑 지연 시뮬레이션 모드',
+      'logging.level': 'agent.log의 로그 레벨',
+      'agent.service_tier': 'API 서비스 등급 (OpenAI/Anthropic)',
+      'delegation.reasoning_effort': '위임된 서브 에이전트의 추론 노력',
+      'updates.non_interactive_local_changes': '대화 앱 / 게이트웨이가 Hermes를 업데이트할 때 (터미널 프롬프트 없음), 커밋되지 않은 로컬 소스 편집 내용을 어떻게 처리할지 결정합니다. "stash"는 이를 보관했다가 업데이트 후 다시 적용하며, "discard"는 편집 내용을 버립니다. 터미널 업데이트는 이 설정과 무관하게 항상 사용자에게 묻습니다.'
     },
     about: {
       heading: 'Hermes Desktop',
