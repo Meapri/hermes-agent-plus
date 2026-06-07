@@ -5,12 +5,26 @@
 # Hermes Agent ☤
 
 <p align="center">
-  <a href="https://Meapri.github.io/hermes-agent-plus/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://Meapri.github.io/hermes-agent-plus/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent--plus-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://github.com/Meapri/hermes-agent-plus/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/Built%20by-Nous%20Research-blueviolet?style=for-the-badge" alt="Built by Nous Research"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
 </p>
+
+## ✨ Hermes Agent Plus (Meapri 포크) 주요 특징
+
+본 저장소(`Meapri/hermes-agent-plus`)는 공식 저장소를 기반으로 한국인 사용자 편의성을 극대화하기 위해 다음과 같은 고유 기능이 추가된 포크 버전입니다:
+
+1. **완벽한 한글화 (Full Korean Localization):**
+   - **문서 및 가이드:** 모든 공식 문서와 README가 한글화되어 있으며, [전용 GitHub Pages](https://Meapri.github.io/hermes-agent-plus/docs/)를 통해 호스팅됩니다.
+   - **데스크톱 및 CLI 앱:** 기본 언어가 한국어(`ko`)로 설정되어 있어 복잡한 설정 없이 바로 한국어 UI와 안내 메시지를 사용할 수 있습니다.
+2. **Claude 인증 및 결제 우회 (Claude Auth & Billing Bypass):**
+   - 코드 레벨(`anthropic_adapter.py`, `anthropic_billing_bypass.py`)에서 Anthropic API의 결제 및 권한 확인 루틴을 자체적으로 우회 및 호환하도록 완전 통합(Native Integration)되어 있습니다.
+3. **독자적인 원클릭 설치 환경:**
+   - 공식 저장소가 아닌 본 포크 저장소의 수정된 코드베이스를 즉시 다운로드하고 세팅하도록 커스텀된 `install.sh` 및 `install.ps1` 스크립트를 제공합니다.
+
+---
 
 **[Nous Research](https://nousresearch.com)가 만든 스스로 발전하는 AI 에이전트입니다.** 경험을 통해 스킬을 만들고, 사용하는 동안 이를 개선하며, 지식을 지속적으로 기억하도록 유도하고, 이전 대화를 검색하여 여러 세션에 걸쳐 당신이 누구인지 모델링하는 내장형 학습 루프를 갖춘 유일한 에이전트입니다. 5달러짜리 VPS, GPU 클러스터, 또는 유휴 상태일 때 거의 비용이 들지 않는 서버리스 인프라에서 실행해 보세요. 노트북에 얽매이지 않고, 클라우드 VM에서 작업하는 동안 텔레그램을 통해 에이전트와 대화할 수 있습니다.
 
