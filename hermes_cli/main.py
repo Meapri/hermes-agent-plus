@@ -8458,12 +8458,12 @@ def _discard_stashed_changes(
 # =========================================================================
 
 OFFICIAL_REPO_URLS = {
-    "https://github.com/NousResearch/hermes-agent.git",
-    "git@github.com:NousResearch/hermes-agent.git",
-    "https://github.com/NousResearch/hermes-agent",
-    "git@github.com:NousResearch/hermes-agent",
+    "https://github.com/Meapri/hermes-agent.git",
+    "git@github.com:Meapri/hermes-agent.git",
+    "https://github.com/Meapri/hermes-agent",
+    "git@github.com:Meapri/hermes-agent",
 }
-OFFICIAL_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
+OFFICIAL_REPO_URL = "https://github.com/Meapri/hermes-agent.git"
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
 
