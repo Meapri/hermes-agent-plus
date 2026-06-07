@@ -1051,6 +1051,14 @@ def _read_configured_image_model():
             value = section.get("model")
             if isinstance(value, str) and value.strip():
                 return value.strip()
+        # Fallback to auxiliary.image_generation.model
+        aux = cfg.get("auxiliary") if isinstance(cfg, dict) else None
+        if isinstance(aux, dict):
+            ig = aux.get("image_generation")
+            if isinstance(ig, dict):
+                value = ig.get("model")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
     except Exception as exc:
         logger.debug("Could not read image_gen.model: %s", exc)
     return None
@@ -1075,6 +1083,14 @@ def _read_configured_image_provider():
             value = section.get("provider")
             if isinstance(value, str) and value.strip():
                 return value.strip()
+        # Fallback to auxiliary.image_generation.provider
+        aux = cfg.get("auxiliary") if isinstance(cfg, dict) else None
+        if isinstance(aux, dict):
+            ig = aux.get("image_generation")
+            if isinstance(ig, dict):
+                value = ig.get("provider")
+                if isinstance(value, str) and value.strip() and value.strip() != "auto":
+                    return value.strip()
     except Exception as exc:
         logger.debug("Could not read image_gen.provider: %s", exc)
     return None

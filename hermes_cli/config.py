@@ -1327,6 +1327,14 @@ DEFAULT_CONFIG = {
             "timeout": 600,
             "extra_body": {},
         },
+        "image_generation": {
+            "provider": "auto",
+            "model": "",
+            "base_url": "",
+            "api_key": "",
+            "timeout": 60,
+            "extra_body": {},
+        },
     },
     
     "display": {
