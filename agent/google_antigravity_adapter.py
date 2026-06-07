@@ -709,7 +709,16 @@ def _apply_antigravity_request_transforms(request: Dict[str, Any], *, model: str
         if isinstance(gen, dict):
             if "stop_sequences" in gen and "stopSequences" not in gen:
                 gen["stopSequences"] = gen.pop("stop_sequences")
+            thinking_enabled = False
             if _is_claude_thinking_model(model):
+                thinking_enabled = True
+            if isinstance(thinking_config, dict):
+                inc = thinking_config.get("includeThoughts", thinking_config.get("include_thoughts"))
+                if inc is True:
+                    thinking_enabled = True
+                elif inc is False:
+                    thinking_enabled = False
+            if thinking_enabled:
                 budget = None
                 include = True
                 if isinstance(thinking_config, dict):
