@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/Meapri/hermes-agent-plus/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/Built%20by-Nous%20Research-blueviolet?style=for-the-badge" alt="Built by Nous Research"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
 </p>
@@ -33,17 +33,17 @@
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Meapri/hermes-agent-plus/main/scripts/install.sh | bash
 ```
 
 ### Windows (네이티브, PowerShell)
 
-> **참고:** 네이티브 Windows는 WSL 없이 Hermes를 실행합니다. CLI, 게이트웨이, TUI 및 도구 모두 네이티브로 작동합니다. 만약 WSL2를 선호한다면, 위의 Linux/macOS 명령어 한 줄로 설치할 수도 있습니다. 버그를 발견하셨나요? [이슈를 등록](https://github.com/NousResearch/hermes-agent/issues)해 주세요.
+> **참고:** 네이티브 Windows는 WSL 없이 Hermes를 실행합니다. CLI, 게이트웨이, TUI 및 도구 모두 네이티브로 작동합니다. 만약 WSL2를 선호한다면, 위의 Linux/macOS 명령어 한 줄로 설치할 수도 있습니다. 버그를 발견하셨나요? [이슈를 등록](https://github.com/Meapri/hermes-agent-plus/issues)해 주세요.
 
 PowerShell에서 아래 명령어를 실행하세요:
 
 ```powershell
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+iex (irm https://raw.githubusercontent.com/Meapri/hermes-agent-plus/main/scripts/install.ps1)
 ```
 
 이 설치 프로그램은 uv, Python 3.11, Node.js, ripgrep, ffmpeg, **그리고 포터블 Git Bash** (MinGit을 `%LOCALAPPDATA%\hermes\git`에 압축 해제하며 관리자 권한이 필요 없고 기존 시스템 Git 설치와 완전히 격리됨) 등 모든 것을 자동으로 처리합니다. Hermes는 쉘 명령을 실행하기 위해 내장된 Git Bash를 사용합니다.
@@ -181,7 +181,7 @@ hermes claw migrate --overwrite  # 기존 충돌 내용 덮어쓰기
 기여자들을 위한 빠른 시작 — `setup-hermes.sh`로 클론하고 바로 시작하세요:
 
 ```bash
-git clone https://github.com/NousResearch/hermes-agent.git
+git clone https://github.com/Meapri/hermes-agent-plus.git
 cd hermes-agent
 ./setup-hermes.sh     # uv 설치, 가상환경(venv) 생성, .[all] 설치, ~/.local/bin/hermes 심볼릭 링크 생성
 ./hermes              # 가상환경을 자동 감지하므로 'source' 명령어를 먼저 실행할 필요 없음
@@ -203,7 +203,7 @@ scripts/run_tests.sh
 
 - 💬 [Discord](https://discord.gg/NousResearch)
 - 📚 [Skills Hub](https://agentskills.io)
-- 🐛 [Issues](https://github.com/NousResearch/hermes-agent/issues)
+- 🐛 [Issues](https://github.com/Meapri/hermes-agent-plus/issues)
 - 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Hermes 및 다른 MCP 호스트를 위한 리눅스 데스크톱 제어 MCP 서버. AT-SPI 접근성 트리, Wayland/X11 입력, 스크린샷 캡처 및 컴포지터 창 지정 기능 지원.
 - 🔌 [HermesClaw](https://github.com/AaronWong1999/hermesclaw) — 커뮤니티 개발 WeChat 브릿지: 동일한 WeChat 계정에서 Hermes Agent와 OpenClaw를 동시에 실행하세요.
 
