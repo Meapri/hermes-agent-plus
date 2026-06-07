@@ -1,6 +1,6 @@
 import type { Locale } from './types'
 
-export const DEFAULT_LOCALE: Locale = 'en'
+export const DEFAULT_LOCALE: Locale = 'ko'
 
 export const LOCALE_OPTIONS = [
   {
