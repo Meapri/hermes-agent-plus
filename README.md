@@ -25,6 +25,10 @@
    - 공식 저장소가 아닌 본 포크 저장소의 수정된 코드베이스를 즉시 다운로드하고 세팅하도록 커스텀된 `install.sh` 및 `install.ps1` 스크립트를 제공합니다.
 4. **Google Antigravity 기본 통합 (Antigravity Provider Integration):**
    - 구글 내부망 기반의 Antigravity 제공자를 공식 지원하도록 어댑터 및 인증 로직이 내장되어 있습니다. `hermes model` 명령어를 통해 언제든지 전환하여 활용할 수 있습니다.
+5. **Antigravity 비동기 자율 팀 (Antigravity Async Team Orchestration):**
+   - 레거시 동기식 `delegate_task`를 걷어내고, 메인 에이전트의 작업을 막지 않고 독립적으로 동작하는 `spawn_subagent`, `manage_subagents`, `send_message` 도구로 전면 개편되었습니다.
+6. **데스크톱 UI 마크다운 확장 렌더링:**
+   - 데스크톱 UI에서 Mermaid 다이어그램, 정보 슬라이드(Carousel) 및 GitHub 스타일 Alert 요소를 예쁘게 보여주는 커스텀 렌더러가 내장되어 있습니다.
 
 ---
 
