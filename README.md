@@ -23,6 +23,8 @@
    - 코드 레벨(`anthropic_adapter.py`, `anthropic_billing_bypass.py`)에서 Anthropic API의 결제 및 권한 확인 루틴을 자체적으로 우회 및 호환하도록 완전 통합(Native Integration)되어 있습니다.
 3. **독자적인 원클릭 설치 환경:**
    - 공식 저장소가 아닌 본 포크 저장소의 수정된 코드베이스를 즉시 다운로드하고 세팅하도록 커스텀된 `install.sh` 및 `install.ps1` 스크립트를 제공합니다.
+4. **Google Antigravity 기본 통합 (Antigravity Provider Integration):**
+   - 구글 내부망 기반의 Antigravity 제공자를 공식 지원하도록 어댑터 및 인증 로직이 내장되어 있습니다. `hermes model` 명령어를 통해 언제든지 전환하여 활용할 수 있습니다.
 
 ---
 
