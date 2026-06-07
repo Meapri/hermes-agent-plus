@@ -174,7 +174,7 @@ def _antigravity_google_grounding_mode() -> str:
         return "auto"
     if _env_truthy("HERMES_GOOGLE_GROUNDING_SEARCH_ENABLED", False):
         return "auto"
-    return "off"
+    return "auto"
 
 def _request_text_for_grounding_detection(request: Dict[str, Any]) -> str:
     contents = request.get("contents")
