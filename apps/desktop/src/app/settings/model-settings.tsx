@@ -50,17 +50,17 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
 const IMAGE_PROVIDERS: ModelOptionProvider[] = [
-  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['nano-banana-pro', 'nano-banana-pro-2'] },
-  { name: 'FAL.ai', slug: 'fal-ai', models: ['flux-2-pro', 'flux-2/klein/9b', 'z-image/turbo', 'gpt-image-1.5'] }
+  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3-pro-image', 'google-antigravity/gemini-3.1-pro-image'] },
+  { name: 'FAL.ai', slug: 'fal-ai', models: ['fal-ai/flux-2-pro', 'fal-ai/flux-2/klein/9b', 'fal-ai/z-image/turbo', 'fal-ai/gpt-image-1.5'] }
 ]
 
 const IMAGE_MODEL_NAMES: Record<string, string> = {
-  'nano-banana-pro': 'Nano Banana Pro (Gemini 3 Pro Image)',
-  'nano-banana-pro-2': 'Nano Banana Pro 2 (Gemini 3.1 Pro Image)',
-  'flux-2-pro': 'Flux 2 Pro',
-  'flux-2/klein/9b': 'Flux 2 Klein 9B',
-  'z-image/turbo': 'Z-Image Turbo',
-  'gpt-image-1.5': 'GPT Image 1.5'
+  'google-antigravity/gemini-3-pro-image': 'Gemini 3 Pro Image',
+  'google-antigravity/gemini-3.1-pro-image': 'Gemini 3.1 Pro Image',
+  'fal-ai/flux-2-pro': 'Flux 2 Pro',
+  'fal-ai/flux-2/klein/9b': 'Flux 2 Klein 9B',
+  'fal-ai/z-image/turbo': 'Z-Image Turbo',
+  'fal-ai/gpt-image-1.5': 'GPT Image 1.5'
 }
 
 interface StaleAuxWarningProps {
