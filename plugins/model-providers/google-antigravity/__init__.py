@@ -51,15 +51,11 @@ google_antigravity = GoogleAntigravityProfile(
     auth_type="oauth_external",
     supports_health_check=False,
     fallback_models=(
-        "gemini-3.5-flash-high",
-        "gemini-3.5-flash-medium",
-        "gemini-3.1-pro-high",
-        "gemini-3.1-pro-low",
-        "claude-sonnet-4-6-thinking",
-        "claude-opus-4-6-thinking",
-        "gpt-oss-120b-medium",
-        "gemini-3-flash",
+        "gemini-3.5-flash",
+        "gemini-3.1-pro",
         "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "gpt-oss-120b",
     ),
 )
 

@@ -173,7 +173,7 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
         "display": "Nano Banana Pro (Gemini 3 Pro Image)",
         "speed": "~8s",
         "strengths": "Gemini 3 Pro, reasoning depth, text rendering",
-        "price": "$0.15/image (1K)",
+        "price": "Free (Antigravity Code Assist)",
         "size_style": "aspect_ratio",
         "sizes": {
             "landscape": "16:9",
@@ -184,8 +184,6 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
             "num_images": 1,
             "output_format": "png",
             "safety_tolerance": "5",
-            # "1K" is the cheapest tier; 4K doubles the per-image cost.
-            # Users on Nous Subscription should stay at 1K for predictable billing.
             "resolution": "1K",
         },
         "supports": {
@@ -741,6 +739,19 @@ def image_generate_tool(
     "error": str, "error_type": str}``.
     """
     model_id, meta = _resolve_fal_model()
+
+    # NATIVE INTEGRATION: Intercept Nano Banana legacy requests and route to native Antigravity provider
+    if model_id == "fal-ai/nano-banana-pro":
+        try:
+            from hermes_cli.plugins import _ensure_plugins_discovered
+            from agent.image_gen_registry import get_provider
+            _ensure_plugins_discovered()
+            provider = get_provider("google-antigravity")
+            if provider is not None:
+                # We must return a JSON string as expected by image_generate_tool's contract
+                return json.dumps(provider.generate_image(prompt, aspect_ratio=aspect_ratio))
+        except Exception as exc:
+            logger.debug("Failed to intercept nano-banana-pro with native antigravity: %s", exc)
 
     debug_call_data = {
         "model": model_id,

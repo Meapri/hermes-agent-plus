@@ -283,7 +283,7 @@ def _drop_function_tools_for_grounding(request: Dict[str, Any]) -> None:
 
 def _maybe_enable_google_grounding(request: Dict[str, Any], *, model: str) -> None:
     mode = _antigravity_google_grounding_mode()
-    if mode == "off" or not _is_gemini_model(model):
+    if mode == "off":
         return
     if mode != "always" and not _request_wants_google_grounding(request):
         return

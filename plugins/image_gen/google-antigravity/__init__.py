@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 
 
 _MODELS: Dict[str, Dict[str, Any]] = {
+    "gemini-3-pro-image": {
+        "display": "Nano Banana Pro (Gemini 3 Pro Image)",
+        "speed": "~15-30s",
+        "strengths": "Antigravity high-fidelity image generation (Pro Tier)",
+    },
     "gemini-3.1-flash-image": {
         "display": "Nano Banana (Gemini 3.1 Flash Image)",
         "speed": "~8-20s",
@@ -193,6 +198,13 @@ def _fetch_available_image_models(access_token: str, *, refresh: bool = False) -
             ids = payload.get("imageGenerationModelIds") or payload.get("image_generation_model_ids") or []
             if not isinstance(ids, list):
                 ids = []
+            
+            # Ensure nano-banana models are always selectable via UI
+            ensure_ids = ["gemini-3-pro-image", "gemini-3.1-flash-image"]
+            for eid in ensure_ids:
+                if eid not in ids:
+                    ids.append(eid)
+                    
             catalog = _model_catalog_from_ids((str(item) for item in ids), payload.get("models"))
             _AVAILABLE_MODELS_CACHE.update({"fetched_at": now, "models": catalog})
             return catalog
