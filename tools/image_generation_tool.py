@@ -765,7 +765,7 @@ def image_generate_tool(
     model_id, meta = _resolve_fal_model()
 
     # NATIVE INTEGRATION: Intercept Antigravity image requests and route to native Antigravity provider
-    if model_id in ("google-antigravity/gemini-3-pro-image-preview", "google-antigravity/gemini-3.1-flash-image", "fal-ai/nano-banana-pro", "fal-ai/nano-banana-pro-2"):
+    if model_id in ("google-antigravity/gemini-3.1-flash-image",):
         try:
             from hermes_cli.plugins import _ensure_plugins_discovered
             from agent.image_gen_registry import get_provider
@@ -775,7 +775,7 @@ def image_generate_tool(
                 # We must return a JSON string as expected by image_generate_tool's contract
                 return json.dumps(provider.generate(prompt, aspect_ratio=aspect_ratio, model=model_id))
         except Exception as exc:
-            logger.debug("Failed to intercept nano-banana-pro with native antigravity: %s", exc)
+            logger.debug("Failed to intercept antigravity image request with native provider: %s", exc)
 
     debug_call_data = {
         "model": model_id,

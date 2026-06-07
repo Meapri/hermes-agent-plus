@@ -458,7 +458,7 @@ TIPS = [
     'HERMES_CHECKPOINT_TIMEOUT (default 30s) caps filesystem checkpoint creation — raise it on huge monorepos.',
 
     # --- Auxiliary Tasks & Image Generation ---
-    'image_gen.model in config.yaml picks the FAL model: flux-2/klein, gpt-image-2, google-antigravity/gemini-3-pro-image-preview, and more.',
+    'image_gen.model in config.yaml picks the FAL model: flux-2/klein, gpt-image-2, google-antigravity/gemini-3.1-flash-image, and more.',
     'image_gen.provider routes image generation through a plugin (OpenAI Images, Codex, FAL) instead of the default.',
     'AUXILIARY_VISION_BASE_URL + AUXILIARY_VISION_API_KEY point vision analysis at any OpenAI-compatible endpoint.',
 
