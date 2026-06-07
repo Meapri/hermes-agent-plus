@@ -131,7 +131,7 @@ class OpenAIImageGenProvider(ImageGenProvider):
 
     @property
     def display_name(self) -> str:
-        return "OpenAI"
+        return "OpenAI Images"
 
     def is_available(self) -> bool:
         if not os.environ.get("OPENAI_API_KEY"):
@@ -159,7 +159,7 @@ class OpenAIImageGenProvider(ImageGenProvider):
 
     def get_setup_schema(self) -> Dict[str, Any]:
         return {
-            "name": "OpenAI",
+            "name": "OpenAI Images",
             "badge": "paid",
             "tag": "gpt-image-2 at low/medium/high quality tiers",
             "env_vars": [
