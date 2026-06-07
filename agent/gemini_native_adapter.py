@@ -540,6 +540,18 @@ def translate_gemini_response(resp: Dict[str, Any], model: str) -> SimpleNamespa
         ),
     )
     reasoning = "".join(reasoning_pieces) or None
+    
+    grounding_metadata = cand.get("groundingMetadata")
+    if isinstance(grounding_metadata, dict):
+        queries = grounding_metadata.get("webSearchQueries")
+        if isinstance(queries, list) and queries:
+            queries_str = "\n".join(f"- {q}" for q in queries)
+            grounding_text = f"\n\n🔍 **Google Search Grounding:**\n{queries_str}\n"
+            if reasoning is None:
+                reasoning = grounding_text
+            else:
+                reasoning += grounding_text
+
     message = SimpleNamespace(
         role="assistant",
         content="".join(text_pieces) if text_pieces else None,
@@ -696,6 +708,15 @@ def translate_stream_event(event: Dict[str, Any], model: str, tool_call_indices:
             )
 
     finish_reason_raw = str(cand.get("finishReason") or "")
+    
+    grounding_metadata = cand.get("groundingMetadata")
+    if isinstance(grounding_metadata, dict):
+        queries = grounding_metadata.get("webSearchQueries")
+        if isinstance(queries, list) and queries:
+            queries_str = "\n".join(f"- {q}" for q in queries)
+            grounding_text = f"\n\n🔍 **Google Search Grounding:**\n{queries_str}\n"
+            chunks.append(_make_stream_chunk(model=model, reasoning=grounding_text))
+            
     if finish_reason_raw:
         mapped = "tool_calls" if tool_call_indices else _map_gemini_finish_reason(finish_reason_raw)
         finish_chunk = _make_stream_chunk(model=model, finish_reason=mapped)
