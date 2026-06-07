@@ -15,6 +15,8 @@ import {
 import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { codiconForLanguage, isLikelyProseCodeBlock, sanitizeLanguageTag } from '@/lib/markdown-code'
+import { MarkdownMermaid } from '@/components/chat/markdown-mermaid'
+import { MarkdownCarousel } from '@/components/chat/markdown-carousel'
 
 /**
  * Streamdown's code adapter renders header + body as inline siblings, so we
@@ -58,11 +60,19 @@ export const SyntaxHighlighter: FC<HermesSyntaxHighlighterProps> = ({
     return null
   }
 
+  // Handle custom artifact rendering for mermaid and carousel
+  const cleanLanguage = sanitizeLanguageTag(language || '')
+  if (cleanLanguage === 'mermaid') {
+    return <MarkdownMermaid code={trimmed} defer={defer} />
+  }
+  if (cleanLanguage === 'carousel') {
+    return <MarkdownCarousel code={trimmed} defer={defer} />
+  }
+
   if (isLikelyProseCodeBlock(language, trimmed)) {
     return <div className="aui-prose-fence whitespace-pre-wrap wrap-anywhere text-foreground">{trimmed}</div>
   }
 
-  const cleanLanguage = sanitizeLanguageTag(language || '')
   const label = cleanLanguage && cleanLanguage !== 'unknown' ? cleanLanguage : ''
 
   return (

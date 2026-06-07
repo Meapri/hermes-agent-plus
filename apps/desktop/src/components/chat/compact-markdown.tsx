@@ -3,6 +3,7 @@ import { Streamdown } from 'streamdown'
 
 import { ExternalLink, ExternalLinkIcon } from '@/lib/external-link'
 import { cn } from '@/lib/utils'
+import { MarkdownAlert } from '@/components/chat/markdown-alert'
 
 // Compact markdown renderer for tool detail bodies. Same Streamdown pipeline
 // as the file preview pane, with tighter typography and external-link routing
@@ -84,7 +85,7 @@ function MarkdownTable({ className, ...rest }: ComponentProps<'table'>) {
 
 const COMPONENTS = {
   a: MarkdownAnchor,
-  blockquote: tagged('blockquote'),
+  blockquote: MarkdownAlert,
   code: MarkdownCode,
   h1: tagged('h1'),
   h2: tagged('h2'),

@@ -9,6 +9,7 @@ import {
 import { code } from '@streamdown/code'
 import { type ComponentProps, memo, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 
+import { MarkdownAlert } from '@/components/chat/markdown-alert'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
 import { SyntaxHighlighter } from '@/components/chat/shiki-highlighter'
 import { ZoomableImage } from '@/components/chat/zoomable-image'
@@ -398,12 +399,7 @@ function MarkdownTextSurface({ containerClassName, containerProps }: MarkdownTex
         a: MarkdownLink,
         // `---` as quiet spacing, not a heavy full-width rule.
         hr: (_props: ComponentProps<'hr'>) => <div aria-hidden className="my-3" />,
-        blockquote: ({ className, ...props }: ComponentProps<'blockquote'>) => (
-          <blockquote
-            className={cn('border-l-2 border-border pl-3 text-muted-foreground italic', className)}
-            {...props}
-          />
-        ),
+        blockquote: MarkdownAlert,
         ul: ({ className, ...props }: ComponentProps<'ul'>) => (
           <ul className={cn('my-1 gap-0', className)} {...props} />
         ),

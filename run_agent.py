@@ -5053,6 +5053,16 @@ class AIAgent:
             parent_agent=self,
         )
 
+    def _dispatch_spawn_subagent(self, function_args: dict) -> str:
+        """Dispatch for background subagents."""
+        from tools.spawn_subagent import spawn_subagent as _spawn_subagent
+        return _spawn_subagent(
+            goal=function_args.get("goal"),
+            role=function_args.get("role", "leaf"),
+            workspace_mode=function_args.get("workspace_mode", "inherit"),
+            parent_agent=self,
+        )
+
     def _invoke_tool(self, function_name: str, function_args: dict, effective_task_id: str,
                      tool_call_id: Optional[str] = None, messages: list = None,
                      pre_tool_block_checked: bool = False,

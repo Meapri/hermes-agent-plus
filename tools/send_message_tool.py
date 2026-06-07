@@ -143,7 +143,7 @@ SEND_MESSAGE_SCHEMA = {
             },
             "target": {
                 "type": "string",
-                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for Telegram topics and Discord threads. Examples: 'telegram', 'telegram:-1001234567890:17585', 'discord:999888777:555444333', 'discord:#bot-home', 'slack:#engineering', 'signal:+155****4567', 'matrix:!roomid:server.org', 'matrix:@user:server.org', 'ntfy:alerts-channel' (explicit ntfy topic), 'yuanbao:direct:<account_id>' (DM), 'yuanbao:group:<group_code>' (group chat)"
+                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for Telegram topics and Discord threads. Examples: 'telegram', 'telegram:-1001234567890:17585', 'discord:999888777:555444333', 'discord:#bot-home', 'slack:#engineering', 'signal:+155****4567', 'matrix:!roomid:server.org', 'matrix:@user:server.org', 'ntfy:alerts-channel' (explicit ntfy topic), 'yuanbao:direct:<account_id>' (DM), 'yuanbao:group:<group_code>' (group chat), 'agent:<job_id>' (internal agent P2P messaging)"
             },
             "message": {
                 "type": "string",
@@ -213,6 +213,21 @@ def _handle_send(args):
     from tools.interrupt import is_interrupted
     if is_interrupted():
         return tool_error("Interrupted")
+
+    # Internal P2P messaging for Antigravity subagents
+    if platform_name == "agent":
+        if not chat_id:
+            return json.dumps({"error": "An agent job_id is required. Format: agent:<job_id>"})
+        try:
+            from agent.async_subagents import get_job
+            job = get_job(chat_id)
+            if not job or job.get("status") != "running":
+                return json.dumps({"error": f"Agent job {chat_id} not found or not currently running."})
+            target_agent = job["agent"]
+            target_agent.steer(f"Message from parent/peer: {message}")
+            return json.dumps({"success": True, "note": f"Sent P2P message to agent {chat_id}"})
+        except Exception as e:
+            return json.dumps({"error": f"Failed to send P2P message: {e}"})
 
     try:
         from gateway.config import load_gateway_config, Platform
@@ -399,6 +414,8 @@ def _parse_target_ref(platform_name: str, target_ref: str):
         topic = target_ref.strip()
         if topic:
             return topic, None, True
+    if platform_name == "agent":
+        return target_ref.strip(), None, True
     if platform_name == "email":
         match = _EMAIL_TARGET_RE.fullmatch(target_ref)
         if match:

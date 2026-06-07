@@ -678,7 +678,7 @@ violate them.
    capability, point at the proper tool by name in backticks
    (`` `terminal` ``, `` `web_extract` ``, `` `read_file` ``,
    `` `patch` ``, `` `search_files` ``, `` `vision_analyze` ``,
-   `` `browser_navigate` ``, `` `delegate_task` ``, etc.). Do NOT
+   `` `browser_navigate` ``, `` `spawn_subagent` ``, etc.). Do NOT
    name shell utilities the agent already has wrapped — `grep` →
    `search_files`, `cat`/`head`/`tail` → `read_file`, `sed`/`awk` →
    `patch`, `find`/`ls` → `search_files target='files'`. If the skill
@@ -754,36 +754,17 @@ Enable/disable per platform via `hermes tools` (the curses UI) or the
 
 ---
 
-## Delegation (`delegate_task`)
+## Autonomous Team Orchestration (`spawn_subagent`, `manage_subagents`, `send_message`)
 
-`tools/delegate_tool.py` spawns a subagent with an isolated
-context + terminal session. Synchronous: the parent waits for the
-child's summary before continuing its own loop — if the parent is
-interrupted, the child is cancelled.
+Hermes uses an asynchronous multi-agent architecture for complex subtasks. The primary agent can spawn background subagents using `spawn_subagent`. These subagents run independently without blocking the primary agent.
 
-Two shapes:
+Key Tools:
 
-- **Single:** pass `goal` (+ optional `context`, `toolsets`).
-- **Batch (parallel):** pass `tasks: [...]` — each gets its own subagent
-  running concurrently. Concurrency is capped by
-  `delegation.max_concurrent_children` (default 3).
+- **`spawn_subagent`**: Spawns a background asynchronous subagent. Returns a `job_id`. You can specify a workspace mode (`inherit`, `branch`, or `share`) to isolate filesystem access.
+- **`manage_subagents`**: Lists running subagents, checks their status, or kills them.
+- **`send_message`**: Sends direct messages (P2P) between agents using their `job_id`. This is the primary way to communicate with running subagents, request status updates, or receive results.
 
-Roles:
-
-- `role="leaf"` (default) — focused worker. Cannot call `delegate_task`,
-  `clarify`, `memory`, `send_message`, `execute_code`.
-- `role="orchestrator"` — retains `delegate_task` so it can spawn its
-  own workers. Gated by `delegation.orchestrator_enabled` (default true)
-  and bounded by `delegation.max_spawn_depth` (default 2).
-
-Key config knobs (under `delegation:` in `config.yaml`):
-`max_concurrent_children`, `max_spawn_depth`, `child_timeout_seconds`,
-`orchestrator_enabled`, `subagent_auto_approve`, `inherit_mcp_toolsets`,
-`max_iterations`.
-
-Synchronicity rule: delegate_task is **not** durable. For long-running
-work that must outlive the current turn, use `cronjob` or
-`terminal(background=True, notify_on_complete=True)` instead.
+Because subagents run asynchronously, the parent agent can continue working or wait for results by checking its own incoming messages. Subagents will proactively notify the parent when they complete their tasks.
 
 ---
 
