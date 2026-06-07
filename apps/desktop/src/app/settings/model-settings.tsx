@@ -50,13 +50,13 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
 const IMAGE_PROVIDERS: ModelOptionProvider[] = [
-  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3-pro-image', 'google-antigravity/gemini-3.1-pro-image'] },
+  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3-pro-image-preview', 'google-antigravity/gemini-3.1-flash-image'] },
   { name: 'FAL.ai', slug: 'fal-ai', models: ['fal-ai/flux-2-pro', 'fal-ai/flux-2/klein/9b', 'fal-ai/z-image/turbo', 'fal-ai/gpt-image-1.5'] }
 ]
 
 const IMAGE_MODEL_NAMES: Record<string, string> = {
-  'google-antigravity/gemini-3-pro-image': 'Gemini 3 Pro Image',
-  'google-antigravity/gemini-3.1-pro-image': 'Gemini 3.1 Pro Image',
+  'google-antigravity/gemini-3-pro-image-preview': 'Gemini 3 Pro Image',
+  'google-antigravity/gemini-3.1-flash-image': 'Gemini 3.1 Flash Image',
   'fal-ai/flux-2-pro': 'Flux 2 Pro',
   'fal-ai/flux-2/klein/9b': 'Flux 2 Klein 9B',
   'fal-ai/z-image/turbo': 'Z-Image Turbo',
