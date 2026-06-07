@@ -7537,6 +7537,54 @@ async def toggle_skill(body: SkillToggle):
     return {"ok": True, "name": body.name, "enabled": body.enabled}
 
 
+@app.get("/api/tools/image-gen/providers")
+async def get_image_gen_providers():
+    """Return registered image-gen providers with their model catalogs.
+
+    Enables the desktop app to dynamically render image-gen provider and
+    model selectors in the auxiliary model settings (image_generation task)
+    without hardcoding provider/model lists on the frontend.  Each provider
+    exposes its own ``list_models()`` catalog, so newly-installed plugins
+    appear automatically.
+    """
+    try:
+        from agent.image_gen_registry import list_providers
+        from hermes_cli.plugins import _ensure_plugins_discovered
+
+        _ensure_plugins_discovered()
+        result = []
+        for provider in list_providers():
+            models_raw = []
+            try:
+                models_raw = provider.list_models()
+            except Exception:
+                _log.debug(
+                    "image_gen provider %s.list_models() failed", provider.name
+                )
+            models = []
+            model_names: dict[str, str] = {}
+            for m in models_raw:
+                mid = m.get("id", "")
+                if not mid:
+                    continue
+                display = m.get("display", mid)
+                models.append(mid)
+                model_names[mid] = display
+            result.append({
+                "name": provider.display_name,
+                "slug": provider.name,
+                "models": models,
+                "model_names": model_names,
+                "available": bool(provider.is_available()),
+            })
+        return {"providers": result}
+    except Exception:
+        _log.exception("GET /api/tools/image-gen/providers failed")
+        raise HTTPException(
+            status_code=500, detail="Failed to list image gen providers"
+        )
+
+
 @app.get("/api/tools/toolsets")
 async def get_toolsets():
     from hermes_cli.tools_config import (

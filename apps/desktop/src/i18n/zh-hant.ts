@@ -551,6 +551,15 @@ export const zhHant = defineLocale({
       change: '變更',
       autoUseMain: '自動 · 使用主要模型',
       providerDefault: '(提供方預設)',
+      staleAuxWarning: (count, names, provider) => `${count} 個輔助任務（${names}）仍在 ${provider} 上執行，而非您的主模型。`,
+      staleAuxWarningOtherProviders: (count, names) => `${count} 個輔助任務（${names}）仍在其他提供者上執行，而非您的主模型。`,
+      staleAuxResetAll: '全部重設為主模型',
+      pasteApiKey: keyEnv => `貼上 ${keyEnv}`,
+      activating: '啟用中...',
+      activate: '啟用',
+      setupProvider: name => `設定 ${name}`,
+      needsApiKey: name => `${name} 需要 API 金鑰 — 設定後即可選擇模型。`,
+      signsInViaBrowser: name => `${name} 透過瀏覽器登入 — Hermes 會自動完成流程。`,
       tasks: {
         vision: { label: '視覺', hint: '圖片分析' },
         web_extract: { label: '網頁擷取', hint: '頁面摘要' },
@@ -559,6 +568,9 @@ export const zhHant = defineLocale({
         approval: { label: '核准', hint: '智慧自動核准' },
         mcp: { label: 'MCP', hint: 'MCP 工具路由' },
         title_generation: { label: '產生標題', hint: '對話標題' },
+        triage_specifier: { label: '分類', hint: '意圖路由' },
+        kanban_decomposer: { label: '看板', hint: '任務分解' },
+        profile_describer: { label: '設定檔', hint: '設定檔摘要' },
         curator: { label: '策展器', hint: '技能使用審查' },
         image_generation: { label: '圖像生成', hint: '圖像生成模型' }
       }

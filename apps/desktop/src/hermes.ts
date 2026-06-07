@@ -698,3 +698,22 @@ export function getSubagents(): Promise<SubagentsResponse> {
     path: '/api/subagents'
   })
 }
+
+export interface ImageGenProviderInfo {
+  name: string
+  slug: string
+  models: string[]
+  model_names: Record<string, string>
+  available: boolean
+}
+
+export interface ImageGenProvidersResponse {
+  providers: ImageGenProviderInfo[]
+}
+
+export function getImageGenProviders(): Promise<ImageGenProvidersResponse> {
+  return window.hermesDesktop.api<ImageGenProvidersResponse>({
+    ...profileScoped(),
+    path: '/api/tools/image-gen/providers'
+  })
+}

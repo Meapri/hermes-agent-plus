@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 # create a circular dependency (``tools.tts_tool`` imports
 # ``agent.tts_registry`` for dispatch).
 _BUILTIN_NAMES = frozenset({
-    "edge",
     "elevenlabs",
     "openai",
     "minimax",

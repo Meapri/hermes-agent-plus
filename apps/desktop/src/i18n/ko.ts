@@ -471,6 +471,15 @@ export const ko: Translations = {
       change: '변경',
       autoUseMain: '자동 · 메인 모델 사용',
       providerDefault: '(제공자 기본값)',
+      staleAuxWarning: (count, names, provider) => `${count}개 보조 작업(${names})이 여전히 메인 모델이 아닌 ${provider}에서 실행 중입니다.`,
+      staleAuxWarningOtherProviders: (count, names) => `${count}개 보조 작업(${names})이 여전히 메인 모델이 아닌 다른 프로바이더에서 실행 중입니다.`,
+      staleAuxResetAll: '모두 메인으로 초기화',
+      pasteApiKey: keyEnv => `${keyEnv} 붙여넣기`,
+      activating: '활성화 중...',
+      activate: '활성화',
+      setupProvider: name => `${name} 설정`,
+      needsApiKey: name => `${name}에 API 키가 필요합니다 — 설정하여 모델을 선택하세요.`,
+      signsInViaBrowser: name => `${name}은 브라우저를 통해 로그인합니다 — Hermes가 자동으로 처리합니다.`,
       tasks: {
         vision: { label: '비전', hint: '이미지 분석' },
         web_extract: { label: '웹 추출', hint: '페이지 요약' },
@@ -479,6 +488,9 @@ export const ko: Translations = {
         approval: { label: '승인', hint: '스마트 자동 승인' },
         mcp: { label: 'MCP', hint: 'MCP 도구 라우팅' },
         title_generation: { label: '제목 생성', hint: '세션 제목' },
+        triage_specifier: { label: '분류', hint: '의도 라우팅' },
+        kanban_decomposer: { label: '칸반', hint: '작업 분해' },
+        profile_describer: { label: '프로필', hint: '프로필 요약' },
         curator: { label: '큐레이터', hint: '스킬 사용 검토' },
         image_generation: { label: '이미지 생성', hint: '이미지 생성 모델' }
       }

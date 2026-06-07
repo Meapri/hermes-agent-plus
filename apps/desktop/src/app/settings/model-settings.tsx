@@ -7,11 +7,12 @@ import {
   getAuxiliaryModels,
   getGlobalModelInfo,
   getGlobalModelOptions,
+  getImageGenProviders,
   getRecommendedDefaultModel,
   setEnvVar,
   setModelAssignment
 } from '@/hermes'
-import type { AuxiliaryModelsResponse, ModelOptionProvider, StaleAuxAssignment } from '@/hermes'
+import type { AuxiliaryModelsResponse, ImageGenProviderInfo, ModelOptionProvider, StaleAuxAssignment } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -43,45 +44,32 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
   { key: 'approval' },
   { key: 'mcp' },
   { key: 'title_generation' },
+  { key: 'triage_specifier' },
+  { key: 'kanban_decomposer' },
+  { key: 'profile_describer' },
   { key: 'curator' },
   { key: 'image_generation' }
 ]
 
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
-const IMAGE_PROVIDERS: ModelOptionProvider[] = [
-  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3.1-flash-image'] },
-  { name: 'OpenAI (Codex auth)', slug: 'openai-codex', models: ['gpt-image-2-low', 'gpt-image-2-medium', 'gpt-image-2-high'] },
-  { name: 'OpenAI Images', slug: 'openai', models: ['gpt-image-2-low', 'gpt-image-2-medium', 'gpt-image-2-high'] },
-  { name: 'xAI (Grok)', slug: 'xai', models: ['grok-imagine-image', 'grok-imagine-image-quality'] },
-  { name: 'Krea', slug: 'krea', models: ['krea-2-medium', 'krea-2-large'] },
-  { name: 'FAL.ai', slug: 'fal-ai', models: ['fal-ai/flux-2/klein/9b', 'fal-ai/flux-2-pro', 'fal-ai/z-image/turbo', 'fal-ai/gpt-image-1.5', 'fal-ai/gpt-image-2', 'fal-ai/ideogram/v3', 'fal-ai/recraft/v4/pro/text-to-image', 'fal-ai/qwen-image', 'fal-ai/krea/v2/medium/text-to-image', 'fal-ai/krea/v2/large/text-to-image'] }
-]
+// Convert backend ImageGenProviderInfo[] to the ModelOptionProvider shape used
+// by the aux-task provider/model selectors.
+function imageProvidersToOptions(providers: ImageGenProviderInfo[]): ModelOptionProvider[] {
+  return providers.map(p => ({ name: p.name, slug: p.slug, models: p.models }))
+}
 
-const IMAGE_MODEL_NAMES: Record<string, string> = {
-  // Google Antigravity
-  'google-antigravity/gemini-3.1-flash-image': 'Gemini 3.1 Flash Image',
-  // OpenAI (Codex / API key — shared tier IDs)
-  'gpt-image-2-low': 'GPT Image 2 (Low)',
-  'gpt-image-2-medium': 'GPT Image 2 (Medium)',
-  'gpt-image-2-high': 'GPT Image 2 (High)',
-  // xAI (Grok)
-  'grok-imagine-image': 'Grok Imagine Image',
-  'grok-imagine-image-quality': 'Grok Imagine Image (Quality)',
-  // Krea (direct)
-  'krea-2-medium': 'Krea 2 Medium',
-  'krea-2-large': 'Krea 2 Large',
-  // FAL.ai
-  'fal-ai/flux-2/klein/9b': 'FLUX 2 Klein 9B',
-  'fal-ai/flux-2-pro': 'FLUX 2 Pro',
-  'fal-ai/z-image/turbo': 'Z-Image Turbo',
-  'fal-ai/gpt-image-1.5': 'GPT Image 1.5',
-  'fal-ai/gpt-image-2': 'GPT Image 2',
-  'fal-ai/ideogram/v3': 'Ideogram V3',
-  'fal-ai/recraft/v4/pro/text-to-image': 'Recraft V4 Pro',
-  'fal-ai/qwen-image': 'Qwen Image',
-  'fal-ai/krea/v2/medium/text-to-image': 'Krea 2 Medium (FAL)',
-  'fal-ai/krea/v2/large/text-to-image': 'Krea 2 Large (FAL)'
+// Merge per-provider model_names dicts into a single flat lookup.
+function imageModelNameMap(providers: ImageGenProviderInfo[]): Record<string, string> {
+  const map: Record<string, string> = {}
+
+  for (const p of providers) {
+    if (p.model_names) {
+      Object.assign(map, p.model_names)
+    }
+  }
+
+  return map
 }
 
 interface StaleAuxWarningProps {
@@ -96,6 +84,9 @@ interface StaleAuxWarningProps {
 // $0-balance provider after switching main away from it) and offers the
 // existing one-click reset rather than auto-clearing legitimate pins.
 function StaleAuxWarning({ applying, onReset, slots, taskLabel }: StaleAuxWarningProps) {
+  const { t } = useI18n()
+  const m = t.settings.model
+
   if (!slots.length) {
     return null
   }
@@ -108,11 +99,12 @@ function StaleAuxWarning({ applying, onReset, slots, taskLabel }: StaleAuxWarnin
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
       <AlertTriangle className="size-3.5 shrink-0" />
       <span className="grow">
-        {slots.length} auxiliary task{slots.length === 1 ? '' : 's'} ({names}) still run on{' '}
-        <span className="font-mono">{allSameProvider ? provider : 'other providers'}</span>, not your main model.
+        {allSameProvider
+          ? m.staleAuxWarning(slots.length, names, provider)
+          : m.staleAuxWarningOtherProviders(slots.length, names)}
       </span>
       <Button disabled={applying} onClick={onReset} size="sm" variant="textStrong">
-        Reset all to main
+        {m.staleAuxResetAll}
       </Button>
     </div>
   )
@@ -143,16 +135,20 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
   // place — mirrors the onboarding ApiKeyForm but scoped to the model picker.
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [activating, setActivating] = useState(false)
+  // Image-gen providers loaded dynamically from the backend plugin registry.
+  const [imageProviders, setImageProviders] = useState<ModelOptionProvider[]>([])
+  const [imageModelNames, setImageModelNames] = useState<Record<string, string>>({})
 
   const refresh = useCallback(async () => {
     setLoading(true)
     setError('')
 
     try {
-      const [modelInfo, modelOptions, auxiliaryModels] = await Promise.all([
+      const [modelInfo, modelOptions, auxiliaryModels, imgProviders] = await Promise.all([
         getGlobalModelInfo(),
         getGlobalModelOptions(),
-        getAuxiliaryModels()
+        getAuxiliaryModels(),
+        getImageGenProviders().catch(() => ({ providers: [] }))
       ])
 
       setMainModel({ model: modelInfo.model, provider: modelInfo.provider })
@@ -160,6 +156,8 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
       setSelectedProvider(prev => prev || modelInfo.provider)
       setSelectedModel(prev => prev || modelInfo.model)
       setAuxiliary(auxiliaryModels)
+      setImageProviders(imageProvidersToOptions(imgProviders.providers))
+      setImageModelNames(imageModelNameMap(imgProviders.providers))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -406,7 +404,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                       void activateApiKeyProvider()
                     }
                   }}
-                  placeholder={`Paste ${selectedProviderRow?.key_env ?? 'API key'}`}
+                  placeholder={m.pasteApiKey(selectedProviderRow?.key_env ?? 'API key')}
                   type="password"
                   value={apiKeyDraft}
                 />
@@ -416,12 +414,12 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                   size="sm"
                 >
                   {activating && <Loader2 className="size-3.5 animate-spin" />}
-                  {activating ? 'Activating...' : 'Activate'}
+                  {activating ? m.activating : m.activate}
                 </Button>
               </>
             ) : (
               <Button onClick={startProviderSetup} size="sm" variant="textStrong">
-                Set up {selectedProviderRow?.name ?? 'provider'}
+                {m.setupProvider(selectedProviderRow?.name ?? 'provider')}
               </Button>
             )
           ) : (
@@ -452,8 +450,8 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
         {needsSetup && !setupIsApiKey && (
           <p className="mt-2 text-xs text-muted-foreground">
             {selectedProviderRow?.auth_type === 'api_key'
-              ? `${selectedProviderRow?.name} needs an API key — set it up to choose a model.`
-              : `${selectedProviderRow?.name} signs in through your browser — Hermes runs the flow for you.`}
+              ? m.needsApiKey(selectedProviderRow?.name ?? 'provider')
+              : m.signsInViaBrowser(selectedProviderRow?.name ?? 'provider')}
           </p>
         )}
         {error && <div className="mt-2 text-xs text-destructive">{error}</div>}
@@ -501,9 +499,9 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
             const isAuto = !current || !current.provider || current.provider === 'auto'
             const isEditing = editingAuxTask === meta.key
             const isImageGen = meta.key === 'image_generation'
-            const activeProviderOptions = isImageGen ? IMAGE_PROVIDERS : providerOptions
+            const activeProviderOptions = isImageGen ? imageProviders : providerOptions
             const activeProviderModels = isImageGen
-              ? IMAGE_PROVIDERS.find(p => p.slug === auxDraft.provider)?.models ?? []
+              ? imageProviders.find(p => p.slug === auxDraft.provider)?.models ?? []
               : auxDraftProviderModels
 
             return (
@@ -558,7 +556,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                         <SelectContent>
                           {(activeProviderModels.length ? activeProviderModels : []).map(model => (
                             <SelectItem key={model} value={model}>
-                              {isImageGen ? IMAGE_MODEL_NAMES[model] || model : model}
+                              {isImageGen ? imageModelNames[model] || model : model}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -580,7 +578,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                   <span className="font-mono text-[0.68rem]">
                     {isAuto
                       ? m.autoUseMain
-                      : `${current.provider} · ${isImageGen ? IMAGE_MODEL_NAMES[current.model || ''] || current.model : current.model || m.providerDefault}`}
+                      : `${current.provider} · ${isImageGen ? imageModelNames[current.model || ''] || current.model : current.model || m.providerDefault}`}
                   </span>
                 }
                 key={meta.key}

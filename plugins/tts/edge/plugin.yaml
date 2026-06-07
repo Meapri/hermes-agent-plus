@@ -1,0 +1,5 @@
+name: edge-tts
+version: 1.0.0
+description: Microsoft Edge TTS — free, high-quality neural text-to-speech
+author: hermes
+kind: backend

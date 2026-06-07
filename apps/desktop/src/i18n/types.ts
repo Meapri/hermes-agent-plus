@@ -391,6 +391,18 @@ export interface Translations {
       change: string
       autoUseMain: string
       providerDefault: string
+      // Stale aux warning
+      staleAuxWarning: (count: number, names: string, provider: string) => string
+      staleAuxWarningOtherProviders: (count: number, names: string) => string
+      staleAuxResetAll: string
+      // Inline API key activation
+      pasteApiKey: (keyEnv: string) => string
+      activating: string
+      activate: string
+      // Provider setup
+      setupProvider: (name: string) => string
+      needsApiKey: (name: string) => string
+      signsInViaBrowser: (name: string) => string
       tasks: Record<string, AuxTaskCopy>
     }
     providers: {

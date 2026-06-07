@@ -471,6 +471,15 @@ export const en: Translations = {
       change: 'Change',
       autoUseMain: 'auto · use main model',
       providerDefault: '(provider default)',
+      staleAuxWarning: (count, names, provider) => `${count} auxiliary task${count === 1 ? '' : 's'} (${names}) still run on ${provider}, not your main model.`,
+      staleAuxWarningOtherProviders: (count, names) => `${count} auxiliary task${count === 1 ? '' : 's'} (${names}) still run on other providers, not your main model.`,
+      staleAuxResetAll: 'Reset all to main',
+      pasteApiKey: keyEnv => `Paste ${keyEnv}`,
+      activating: 'Activating...',
+      activate: 'Activate',
+      setupProvider: name => `Set up ${name}`,
+      needsApiKey: name => `${name} needs an API key — set it up to choose a model.`,
+      signsInViaBrowser: name => `${name} signs in through your browser — Hermes runs the flow for you.`,
       tasks: {
         vision: { label: 'Vision', hint: 'Image analysis' },
         web_extract: { label: 'Web extract', hint: 'Page summarization' },
@@ -479,6 +488,9 @@ export const en: Translations = {
         approval: { label: 'Approval', hint: 'Smart auto-approve' },
         mcp: { label: 'MCP', hint: 'MCP tool routing' },
         title_generation: { label: 'Title gen', hint: 'Session titles' },
+        triage_specifier: { label: 'Triage', hint: 'Intent routing' },
+        kanban_decomposer: { label: 'Kanban', hint: 'Task decomposition' },
+        profile_describer: { label: 'Profile', hint: 'Profile summaries' },
         curator: { label: 'Curator', hint: 'Skill-usage review' },
         image_generation: { label: 'Image Gen', hint: 'Image generation model' }
       }

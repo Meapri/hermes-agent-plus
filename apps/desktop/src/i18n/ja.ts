@@ -565,6 +565,15 @@ export const ja = defineLocale({
       change: '変更',
       autoUseMain: '自動 · メインモデルを使用',
       providerDefault: '(プロバイダーのデフォルト)',
+      staleAuxWarning: (count, names, provider) => `${count}件の補助タスク（${names}）がメインモデルではなく${provider}で実行中です。`,
+      staleAuxWarningOtherProviders: (count, names) => `${count}件の補助タスク（${names}）がメインモデルではなく他のプロバイダーで実行中です。`,
+      staleAuxResetAll: 'すべてメインにリセット',
+      pasteApiKey: keyEnv => `${keyEnv}を貼り付け`,
+      activating: 'アクティベート中...',
+      activate: 'アクティベート',
+      setupProvider: name => `${name}を設定`,
+      needsApiKey: name => `${name}にはAPIキーが必要です — 設定してモデルを選択してください。`,
+      signsInViaBrowser: name => `${name}はブラウザでサインインします — Hermesが自動処理します。`,
       tasks: {
         vision: { label: 'ビジョン', hint: '画像分析' },
         web_extract: { label: 'ウェブ抽出', hint: 'ページの要約' },
@@ -573,6 +582,9 @@ export const ja = defineLocale({
         approval: { label: '承認', hint: 'スマート自動承認' },
         mcp: { label: 'MCP', hint: 'MCP ツールルーティング' },
         title_generation: { label: 'タイトル生成', hint: 'セッションタイトル' },
+        triage_specifier: { label: 'トリアージ', hint: 'インテント振り分け' },
+        kanban_decomposer: { label: 'カンバン', hint: 'タスク分解' },
+        profile_describer: { label: 'プロファイル', hint: 'プロファイル要約' },
         curator: { label: 'キュレーター', hint: 'スキル使用レビュー' },
         image_generation: { label: '画像生成', hint: '画像生成モデル' }
       }

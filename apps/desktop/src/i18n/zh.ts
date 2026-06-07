@@ -628,6 +628,15 @@ export const zh: Translations = {
       change: '更改',
       autoUseMain: '自动 · 使用主模型',
       providerDefault: '(提供方默认)',
+      staleAuxWarning: (count, names, provider) => `${count} 个辅助任务（${names}）仍在 ${provider} 上运行，而非您的主模型。`,
+      staleAuxWarningOtherProviders: (count, names) => `${count} 个辅助任务（${names}）仍在其他提供商上运行，而非您的主模型。`,
+      staleAuxResetAll: '全部重置为主模型',
+      pasteApiKey: keyEnv => `粘贴 ${keyEnv}`,
+      activating: '激活中...',
+      activate: '激活',
+      setupProvider: name => `设置 ${name}`,
+      needsApiKey: name => `${name} 需要 API 密钥 — 设置后即可选择模型。`,
+      signsInViaBrowser: name => `${name} 通过浏览器登录 — Hermes 会自动完成流程。`,
       tasks: {
         vision: { label: '视觉', hint: '图片分析' },
         web_extract: { label: '网页提取', hint: '页面总结' },
@@ -636,6 +645,9 @@ export const zh: Translations = {
         approval: { label: '审批', hint: '智能自动批准' },
         mcp: { label: 'MCP', hint: 'MCP 工具路由' },
         title_generation: { label: '生成标题', hint: '会话标题' },
+        triage_specifier: { label: '分类', hint: '意图路由' },
+        kanban_decomposer: { label: '看板', hint: '任务分解' },
+        profile_describer: { label: '档案', hint: '档案摘要' },
         curator: { label: '维护器', hint: '技能使用审查' },
         image_generation: { label: '图像生成', hint: '图像生成模型' }
       }
