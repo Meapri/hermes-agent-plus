@@ -49,6 +49,11 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
 
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
+const IMAGE_PROVIDERS: ModelOptionProvider[] = [
+  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['nano-banana-pro'] },
+  { name: 'FAL.ai', slug: 'fal-ai', models: ['flux-2-pro', 'flux-2/klein/9b', 'z-image/turbo', 'gpt-image-1.5'] }
+]
+
 interface StaleAuxWarningProps {
   applying: boolean
   onReset: () => void
@@ -465,6 +470,11 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
             const current = auxiliary?.tasks.find(entry => entry.task === meta.key)
             const isAuto = !current || !current.provider || current.provider === 'auto'
             const isEditing = editingAuxTask === meta.key
+            const isImageGen = meta.key === 'image_generation'
+            const activeProviderOptions = isImageGen ? IMAGE_PROVIDERS : providerOptions
+            const activeProviderModels = isImageGen
+              ? IMAGE_PROVIDERS.find(p => p.slug === auxDraft.provider)?.models ?? []
+              : auxDraftProviderModels
 
             return (
               <ListRow
@@ -501,7 +511,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                           <SelectValue placeholder={m.provider} />
                         </SelectTrigger>
                         <SelectContent>
-                          {providerOptions.map(provider => (
+                          {activeProviderOptions.map(provider => (
                             <SelectItem key={provider.slug || 'none'} value={provider.slug || 'none'}>
                               {provider.name}
                             </SelectItem>
@@ -516,7 +526,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                           <SelectValue placeholder={m.model} />
                         </SelectTrigger>
                         <SelectContent>
-                          {(auxDraftProviderModels.length ? auxDraftProviderModels : []).map(model => (
+                          {(activeProviderModels.length ? activeProviderModels : []).map(model => (
                             <SelectItem key={model} value={model}>
                               {model}
                             </SelectItem>
