@@ -573,7 +573,8 @@ export const ja = defineLocale({
         approval: { label: '承認', hint: 'スマート自動承認' },
         mcp: { label: 'MCP', hint: 'MCP ツールルーティング' },
         title_generation: { label: 'タイトル生成', hint: 'セッションタイトル' },
-        curator: { label: 'キュレーター', hint: 'スキル使用レビュー' }
+        curator: { label: 'キュレーター', hint: 'スキル使用レビュー' },
+        image_generation: { label: '画像生成', hint: '画像生成モデル' }
       }
     },
     providers: {

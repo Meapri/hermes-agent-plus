@@ -479,7 +479,8 @@ export const ko: Translations = {
         approval: { label: '승인', hint: '스마트 자동 승인' },
         mcp: { label: 'MCP', hint: 'MCP 도구 라우팅' },
         title_generation: { label: '제목 생성', hint: '세션 제목' },
-        curator: { label: '큐레이터', hint: '스킬 사용 검토' }
+        curator: { label: '큐레이터', hint: '스킬 사용 검토' },
+        image_generation: { label: '이미지 생성', hint: '이미지 생성 모델' }
       }
     },
     providers: {

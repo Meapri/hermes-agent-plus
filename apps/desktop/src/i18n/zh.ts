@@ -635,8 +635,9 @@ export const zh: Translations = {
         skills_hub: { label: '技能中心', hint: '技能搜索' },
         approval: { label: '审批', hint: '智能自动批准' },
         mcp: { label: 'MCP', hint: 'MCP 工具路由' },
-        title_generation: { label: '标题生成', hint: '会话标题' },
-        curator: { label: '维护器', hint: '技能使用审查' }
+        title_generation: { label: '生成标题', hint: '会话标题' },
+        curator: { label: '维护器', hint: '技能使用审查' },
+        image_generation: { label: '图像生成', hint: '图像生成模型' }
       }
     },
     providers: {

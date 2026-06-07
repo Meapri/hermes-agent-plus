@@ -479,7 +479,8 @@ export const en: Translations = {
         approval: { label: 'Approval', hint: 'Smart auto-approve' },
         mcp: { label: 'MCP', hint: 'MCP tool routing' },
         title_generation: { label: 'Title gen', hint: 'Session titles' },
-        curator: { label: 'Curator', hint: 'Skill-usage review' }
+        curator: { label: 'Curator', hint: 'Skill-usage review' },
+        image_generation: { label: 'Image Gen', hint: 'Image generation model' }
       }
     },
     providers: {

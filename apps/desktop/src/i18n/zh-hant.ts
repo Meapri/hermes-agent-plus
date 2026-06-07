@@ -558,8 +558,9 @@ export const zhHant = defineLocale({
         skills_hub: { label: '技能中心', hint: '技能搜尋' },
         approval: { label: '核准', hint: '智慧自動核准' },
         mcp: { label: 'MCP', hint: 'MCP 工具路由' },
-        title_generation: { label: '標題生成', hint: '工作階段標題' },
-        curator: { label: '策展器', hint: '技能使用審查' }
+        title_generation: { label: '產生標題', hint: '對話標題' },
+        curator: { label: '策展器', hint: '技能使用審查' },
+        image_generation: { label: '圖像生成', hint: '圖像生成模型' }
       }
     },
     providers: {
