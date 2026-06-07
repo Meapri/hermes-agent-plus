@@ -773,7 +773,7 @@ def image_generate_tool(
             provider = get_provider("google-antigravity")
             if provider is not None:
                 # We must return a JSON string as expected by image_generate_tool's contract
-                return json.dumps(provider.generate(prompt, aspect_ratio=aspect_ratio))
+                return json.dumps(provider.generate(prompt, aspect_ratio=aspect_ratio, model=model_id))
         except Exception as exc:
             logger.debug("Failed to intercept nano-banana-pro with native antigravity: %s", exc)
 

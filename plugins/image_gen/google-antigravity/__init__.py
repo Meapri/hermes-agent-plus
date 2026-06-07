@@ -113,7 +113,7 @@ def _normalize_model(model: Any) -> str:
     if not value:
         return DEFAULT_MODEL
     vendor, sep, bare = value.partition("/")
-    if sep and vendor.lower() in {"google", "gemini"}:
+    if sep and vendor.lower() in {"google", "gemini", "google-antigravity"}:
         value = bare.strip() or value
     value = value.replace("gemini-2-5-", "gemini-2.5-")
     value = value.replace("gemini-3-1-", "gemini-3.1-")
