@@ -50,17 +50,26 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
 const IMAGE_PROVIDERS: ModelOptionProvider[] = [
-  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3-pro-image-preview', 'google-antigravity/gemini-3.1-flash-image'] },
-  { name: 'FAL.ai', slug: 'fal-ai', models: ['fal-ai/flux-2-pro', 'fal-ai/flux-2/klein/9b', 'fal-ai/z-image/turbo', 'fal-ai/gpt-image-1.5'] }
+  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['google-antigravity/gemini-3.1-flash-image'] },
+  { name: 'OpenAI (Codex auth)', slug: 'openai-codex', models: ['gpt-image-2-low', 'gpt-image-2-medium', 'gpt-image-2-high'] },
+  { name: 'FAL.ai', slug: 'fal-ai', models: ['fal-ai/flux-2-pro', 'fal-ai/flux-2/klein/9b', 'fal-ai/z-image/turbo', 'fal-ai/gpt-image-1.5', 'fal-ai/gpt-image-2', 'fal-ai/ideogram/v3', 'fal-ai/recraft/v4/pro/text-to-image', 'fal-ai/qwen-image', 'fal-ai/krea/v2/medium/text-to-image', 'fal-ai/krea/v2/large/text-to-image'] }
 ]
 
 const IMAGE_MODEL_NAMES: Record<string, string> = {
-  'google-antigravity/gemini-3-pro-image-preview': 'Gemini 3 Pro Image',
   'google-antigravity/gemini-3.1-flash-image': 'Gemini 3.1 Flash Image',
+  'gpt-image-2-low': 'GPT Image 2 (Low)',
+  'gpt-image-2-medium': 'GPT Image 2 (Medium)',
+  'gpt-image-2-high': 'GPT Image 2 (High)',
   'fal-ai/flux-2-pro': 'Flux 2 Pro',
   'fal-ai/flux-2/klein/9b': 'Flux 2 Klein 9B',
   'fal-ai/z-image/turbo': 'Z-Image Turbo',
-  'fal-ai/gpt-image-1.5': 'GPT Image 1.5'
+  'fal-ai/gpt-image-1.5': 'GPT Image 1.5',
+  'fal-ai/gpt-image-2': 'GPT Image 2',
+  'fal-ai/ideogram/v3': 'Ideogram V3',
+  'fal-ai/recraft/v4/pro/text-to-image': 'Recraft V4 Pro',
+  'fal-ai/qwen-image': 'Qwen Image',
+  'fal-ai/krea/v2/medium/text-to-image': 'Krea 2 Medium',
+  'fal-ai/krea/v2/large/text-to-image': 'Krea 2 Large'
 }
 
 interface StaleAuxWarningProps {
