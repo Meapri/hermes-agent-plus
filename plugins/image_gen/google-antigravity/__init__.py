@@ -31,39 +31,18 @@ logger = logging.getLogger(__name__)
 
 
 _MODELS: Dict[str, Dict[str, Any]] = {
-    "gemini-3-pro-image": {
-        "display": "Nano Banana Pro (Gemini 3 Pro Image)",
-        "speed": "~15-30s",
-        "strengths": "Antigravity high-fidelity image generation (Pro Tier)",
-    },
     "gemini-3.1-flash-image": {
-        "display": "Nano Banana (Gemini 3.1 Flash Image)",
+        "display": "Gemini 3.1 Flash Image (Nano Banana 2)",
         "speed": "~8-20s",
-        "strengths": "Antigravity OAuth image generation",
-    },
-    "gemini-2.5-flash-image": {
-        "display": "Gemini 2.5 Flash Image",
-        "speed": "~8-20s",
-        "strengths": "Compatibility fallback for older image routing",
+        "strengths": "Antigravity image generation — fast, high-quality",
     },
 }
 
 _MODEL_ALIASES = {
-    "nano-banana-pro": "gemini-3-pro-image",
-    "nano-banana-pro-2": "gemini-3-pro-image",
-    "gemini-3-pro-image-preview": "gemini-3-pro-image",
-    "gemini-3.1-pro-image": "gemini-3-pro-image",
-    "gemini-3-pro-image-generation": "gemini-3-pro-image",
     "nano-banana": "gemini-3.1-flash-image",
-}
-
-_PRO_IMAGE_MODELS = {
-    "gemini-3-pro-image",
-    "gemini-3.1-pro-image",
-    "gemini-3-pro-image-preview",
-    "gemini-3-pro-image-generation",
-    "nano-banana-pro",
-    "nano-banana-pro-2",
+    "nano-banana-2": "gemini-3.1-flash-image",
+    "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
+    "gemini-3-flash-image": "gemini-3.1-flash-image",
 }
 
 DEFAULT_MODEL = "gemini-3.1-flash-image"
@@ -133,8 +112,8 @@ def _resolve_model(explicit: Optional[str] = None) -> Tuple[str, Dict[str, Any]]
         if candidate is None or str(candidate).strip() == "":
             continue
         model_id = _normalize_model(candidate)
-        if model_id in _MODELS or model_id in {"gemini-3-pro-image"}:
-            return model_id, _MODELS.get(model_id, {"display": model_id})
+        if model_id in _MODELS:
+            return model_id, _MODELS[model_id]
     return DEFAULT_MODEL, _MODELS[DEFAULT_MODEL]
 
 
@@ -199,12 +178,9 @@ def _fetch_available_image_models(access_token: str, *, refresh: bool = False) -
             if not isinstance(ids, list):
                 ids = []
             
-            # Ensure nano-banana models are always selectable via UI
-            ensure_ids = ["gemini-3-pro-image", "gemini-3.1-flash-image"]
-            for eid in ensure_ids:
-                if eid not in ids:
-                    ids.append(eid)
-                    
+            # Ensure the default model is always selectable via UI
+            if DEFAULT_MODEL not in ids:
+                ids.append(DEFAULT_MODEL)
             catalog = _model_catalog_from_ids((str(item) for item in ids), payload.get("models"))
             _AVAILABLE_MODELS_CACHE.update({"fetched_at": now, "models": catalog})
             return catalog
@@ -299,9 +275,14 @@ def _submit_antigravity_image_request(
             response = client._http.post(url, json=wrapped, headers=headers)
             if response.status_code == 200:
                 try:
-                    return response.json()
+                    payload = response.json()
                 except ValueError as exc:
                     raise RuntimeError(f"Invalid JSON from Antigravity image endpoint: {exc}") from exc
+                # Cloud Code PA wraps the Gemini response inside a
+                # "response" key — unwrap so callers see standard format.
+                if "response" in payload and isinstance(payload["response"], dict):
+                    payload = payload["response"]
+                return payload
             last_error = _gemini_http_error(response)
             if response.status_code not in {400, 404, 429, 500, 502, 503, 504}:
                 break
@@ -487,17 +468,10 @@ class GoogleAntigravityImageGenProvider(ImageGenProvider):
 
         catalog = _available_model_catalog(access_token)
         if requested_model and requested_model not in catalog:
-            suffix = ""
-            if explicit_model and str(explicit_model).strip() in _PRO_IMAGE_MODELS:
-                suffix = (
-                    " This account's Antigravity fetchAvailableModels.imageGenerationModelIds "
-                    "does not expose a Pro image model yet, so the provider cannot call it "
-                    "through Antigravity."
-                )
             return error_response(
                 error=(
                     f"Unsupported Google Antigravity image model '{requested_model}'. "
-                    f"Available image models: {', '.join(catalog) or 'none'}.{suffix}"
+                    f"Available image models: {', '.join(catalog) or 'none'}."
                 ),
                 error_type="invalid_model",
                 provider=self.name,

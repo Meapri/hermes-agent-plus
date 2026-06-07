@@ -92,22 +92,26 @@ ANTIGRAVITY_MODEL_FALLBACKS: Dict[str, List[str]] = {
     "gemini-3.5-flash-medium": ["gemini-3-flash"],
     "gemini-3.5-flash-low": ["gemini-3-flash"],
     "gemini-3.5-flash": ["gemini-3-flash-agent"],
-    "gemini-3-flash-high": ["gemini-3-flash"],
+    "gemini-3-flash-high": ["gemini-3-flash-agent"],
     "gemini-3-flash-medium": ["gemini-3-flash"],
     "gemini-3-flash-low": ["gemini-3-flash"],
+    "gemini-3-flash": ["gemini-3-flash"],
     # Gemini Pro — backend only knows "gemini-3.1-pro-low"; tier via thinkingConfig
     "gemini-3.1-pro-high": ["gemini-3.1-pro-low"],
     "gemini-3.1-pro-medium": ["gemini-3.1-pro-low"],
+    "gemini-3.1-pro-low": ["gemini-3.1-pro-low"],
     "gemini-3.1-pro": ["gemini-3.1-pro-low"],
     # Claude — backend only knows "claude-sonnet-4-6" and "claude-opus-4-6-thinking".
     # Thinking is controlled by thinkingConfig in the request body (like Gemini),
     # keyed off _is_claude_thinking_model() checking for "thinking" in the name.
+    "claude-sonnet-4-6": ["claude-sonnet-4-6"],
     "claude-sonnet-4-6-thinking": ["claude-sonnet-4-6"],
     "claude-sonnet-4.6-thinking": ["claude-sonnet-4-6"],
     "claude-sonnet-4.6": ["claude-sonnet-4-6"],
     "claude-opus-4.6-thinking": ["claude-opus-4-6-thinking"],
     "claude-opus-4.6": ["claude-opus-4-6-thinking"],
     "claude-opus-4-6": ["claude-opus-4-6-thinking"],
+    "claude-opus-4-6-thinking": ["claude-opus-4-6-thinking"],
     # GPT
     "gpt-oss-120b": ["gpt-oss-120b-medium"],
     "openai/gpt-oss-120b": ["gpt-oss-120b-medium"],
