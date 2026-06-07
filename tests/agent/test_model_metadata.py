@@ -31,6 +31,21 @@ from agent.model_metadata import (
 )
 
 
+def test_google_antigravity_context_length_uses_backend_max_windows():
+    assert get_model_context_length(
+        "gemini-3.5-flash-high",
+        provider="google-antigravity",
+    ) == 1_000_000
+    assert get_model_context_length(
+        "claude-opus-4-6-thinking",
+        provider="google-antigravity",
+    ) == 1_000_000
+    assert get_model_context_length(
+        "gpt-oss-120b-medium",
+        provider="google-antigravity",
+    ) == 131_072
+
+
 # =========================================================================
 # Token estimation
 # =========================================================================

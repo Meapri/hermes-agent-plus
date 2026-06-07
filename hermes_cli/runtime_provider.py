@@ -315,6 +315,9 @@ def _resolve_runtime_from_pool_entry(
     elif provider == "qwen-oauth":
         api_mode = "chat_completions"
         base_url = base_url or DEFAULT_QWEN_BASE_URL
+    elif provider == "google-antigravity":
+        api_mode = "chat_completions"
+        base_url = base_url or "cloudcode-pa://antigravity"
     elif provider == "google-gemini-cli":
         api_mode = "chat_completions"
         base_url = base_url or "cloudcode-pa://google"
@@ -1453,6 +1456,21 @@ def resolve_runtime_provider(
                 "source": creds.get("source", "oauth"),
                 "requested_provider": requested_provider,
             }
+
+    if provider == "google-antigravity":
+        try:
+            creds = resolve_antigravity_oauth_runtime_credentials()
+            return {
+                "provider": "google-antigravity",
+                "api_mode": "chat_completions",
+                "base_url": creds.get("base_url", ""),
+                "api_key": creds.get("api_key", ""),
+                "source": creds.get("source", "antigravity-oauth"),
+                "expires_at_ms": creds.get("expires_at_ms"),
+                "requested_provider": requested_provider,
+            }
+        except AuthError as exc:
+            return {"provider": "google-antigravity", "error": str(exc), "auth_error": True}
 
     if provider == "google-gemini-cli":
         try:

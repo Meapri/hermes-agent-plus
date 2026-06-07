@@ -510,6 +510,46 @@ def run_conversation(
 
     # Initialize conversation (copy to avoid mutating the caller's list)
     messages = list(conversation_history) if conversation_history else []
+    _dropped_empty_recovery = agent._drop_empty_response_recovery_scaffolding_anywhere(messages)
+    if _dropped_empty_recovery:
+        logger.info(
+            "Dropped %d persisted empty-response recovery scaffold message(s) "
+            "for session %s",
+            _dropped_empty_recovery,
+            agent.session_id or "-",
+        )
+        if getattr(agent, "_session_db", None) and getattr(agent, "session_id", None):
+            try:
+                if not getattr(agent, "_session_db_created", True) and hasattr(agent, "_ensure_db_session"):
+                    agent._ensure_db_session()
+                agent._session_db.replace_messages(agent.session_id, messages)
+                agent._last_flushed_db_idx = len(messages)
+            except Exception as exc:
+                logger.warning(
+                    "Failed to rewrite transcript without empty-response "
+                    "recovery scaffolding for session %s: %s",
+                    agent.session_id,
+                    exc,
+                )
+        conversation_history = list(messages)
+    _strip_codex_reasoning = getattr(agent, "_strip_nondurable_codex_reasoning_items", None)
+    if callable(_strip_codex_reasoning):
+        _stripped_codex_reasoning = _strip_codex_reasoning(messages)
+        if _stripped_codex_reasoning:
+            if getattr(agent, "_session_db", None) and getattr(agent, "session_id", None):
+                try:
+                    if not getattr(agent, "_session_db_created", True) and hasattr(agent, "_ensure_db_session"):
+                        agent._ensure_db_session()
+                    agent._session_db.replace_messages(agent.session_id, messages)
+                    agent._last_flushed_db_idx = len(messages)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to rewrite transcript without nondurable Codex "
+                        "reasoning items for session %s: %s",
+                        agent.session_id,
+                        exc,
+                    )
+            conversation_history = list(messages)
 
     # Hydrate todo store from conversation history (gateway creates a fresh
     # AIAgent per message, so the in-memory store is empty -- we need to
@@ -991,6 +1031,8 @@ def run_conversation(
                 api_msg.pop("finish_reason")
             # Strip internal thinking-prefill marker
             api_msg.pop("_thinking_prefill", None)
+            api_msg.pop("_empty_recovery_synthetic", None)
+            api_msg.pop("_empty_terminal_sentinel", None)
             # Strip Codex Responses API fields (call_id, response_item_id) for
             # strict providers like Mistral, Fireworks, etc. that reject unknown fields.
             # Uses new dicts so the internal messages list retains the fields
@@ -2658,6 +2700,68 @@ def run_conversation(
                     )
                     continue
 
+                # ── Codex encrypted reasoning recovery ───────────────
+                # The ChatGPT Codex backend can reject replayed
+                # ``encrypted_content`` blobs after a model/account/session
+                # boundary with:
+                #   invalid_encrypted_content / could not be decrypted
+                # The visible chat history is still valid; only the opaque
+                # reasoning continuation state is stale. Strip it once and
+                # retry instead of making Codex unusable for the session.
+                if (
+                    agent.api_mode == "codex_responses"
+                    and status_code == 400
+                    and not codex_encrypted_content_retry_attempted
+                    and (
+                        "invalid_encrypted_content" in _err_lower
+                        or "encrypted content could not be decrypted" in _err_lower
+                        or "encrypted content" in _err_lower and "could not be verified" in _err_lower
+                    )
+                ):
+                    codex_encrypted_content_retry_attempted = True
+                    stripped_messages = 0
+                    for _m in messages:
+                        if isinstance(_m, dict) and _m.pop("codex_reasoning_items", None):
+                            stripped_messages += 1
+                    if isinstance(api_messages, list):
+                        for _m in api_messages:
+                            if isinstance(_m, dict):
+                                _m.pop("codex_reasoning_items", None)
+                    if isinstance(api_kwargs, dict):
+                        _input = api_kwargs.get("input")
+                        if isinstance(_input, list):
+                            api_kwargs["input"] = [
+                                _item for _item in _input
+                                if not (isinstance(_item, dict) and _item.get("type") == "reasoning")
+                            ]
+                    if stripped_messages and getattr(agent, "_session_db", None) and getattr(agent, "session_id", None):
+                        try:
+                            if hasattr(agent, "_apply_persist_user_message_override"):
+                                agent._apply_persist_user_message_override(messages)
+                            if not getattr(agent, "_session_db_created", True) and hasattr(agent, "_ensure_db_session"):
+                                agent._ensure_db_session()
+                            agent._session_db.replace_messages(agent.session_id, messages)
+                            agent._last_flushed_db_idx = len(messages)
+                            agent._session_messages = messages
+                        except Exception as _persist_exc:
+                            logging.warning(
+                                "%sCodex encrypted reasoning recovery: failed to "
+                                "persist stripped transcript for session %s: %s",
+                                agent.log_prefix,
+                                getattr(agent, "session_id", None),
+                                _persist_exc,
+                            )
+                    agent._vprint(
+                        f"{agent.log_prefix}⚠️  Codex rejected stale encrypted reasoning — "
+                        f"stripped {stripped_messages} reasoning state message(s), retrying...",
+                    )
+                    logging.warning(
+                        "%sCodex encrypted reasoning recovery: stripped "
+                        "codex_reasoning_items from %d messages",
+                        agent.log_prefix, stripped_messages,
+                    )
+                    continue
+
                 # ── llama.cpp grammar-parse recovery ──────────────────
                 # llama.cpp's ``json-schema-to-grammar`` converter rejects
                 # regex escape classes (``\d``, ``\w``, ``\s``) and most
@@ -4036,7 +4140,11 @@ def run_conversation(
                 while (
                     messages
                     and isinstance(messages[-1], dict)
-                    and messages[-1].get("_thinking_prefill")
+                    and (
+                        messages[-1].get("_thinking_prefill")
+                        or messages[-1].get("_empty_recovery_synthetic")
+                        or messages[-1].get("_empty_terminal_sentinel")
+                    )
                 ):
                     messages.pop()
                     _had_prefill = True
@@ -4276,10 +4384,9 @@ def run_conversation(
                             "Empty response after tool calls — nudging model "
                             "to continue processing"
                         )
-                        agent._buffer_status(
-                            "⚠️ Model returned empty after tool calls — "
-                            "nudging to continue"
-                        )
+                        # Silent retry — don't show warning to the user.
+                        # This is a normal recovery pattern, especially after
+                        # large tool results (web_extract, read_file, etc.).
                         # Append the empty assistant message first so the
                         # message sequence stays valid:
                         #   tool(result) → assistant("(empty)") → user(nudge)
@@ -4292,9 +4399,9 @@ def run_conversation(
                         messages.append({
                             "role": "user",
                             "content": (
-                                "You just executed tool calls but returned an "
-                                "empty response. Please process the tool "
-                                "results above and continue with the task."
+                                "Your previous response was empty. The tool "
+                                "results are above. Summarize the key findings "
+                                "and answer the user's question now."
                             ),
                             "_empty_recovery_synthetic": True,
                         })

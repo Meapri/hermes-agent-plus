@@ -8787,6 +8787,16 @@ class HermesCLI:
             print(f"    2. Or configure settings in {display_hermes_home()}/config.yaml")
             print()
     
+    
+    def _handle_agyquota_command(self, cmd_original: str) -> None:
+        try:
+            from agent.antigravity_quota_report import build_antigravity_quota_report
+            output = build_antigravity_quota_report()
+        except Exception as exc:
+            output = f"Antigravity quota lookup failed: {exc}"
+        for line in output.splitlines():
+            self._console_print(f"  {line}" if line else "")
+
     def process_command(self, command: str) -> bool:
         """
         Process a slash command.
@@ -8994,6 +9004,8 @@ class HermesCLI:
             self._handle_model_switch(cmd_original)
         elif canonical == "codex-runtime":
             self._handle_codex_runtime(cmd_original)
+        elif canonical == "agyquota":
+            self._handle_agyquota_command(cmd_original)
         elif canonical == "gquota":
             self._handle_gquota_command(cmd_original)
 

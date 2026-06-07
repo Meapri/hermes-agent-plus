@@ -1,6 +1,7 @@
 import sys
 import types
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -170,6 +171,13 @@ class _FakeCreateStream:
 
     def close(self):
         self.closed = True
+
+
+class _FakeApiError(Exception):
+    def __init__(self, message, *, status_code=400, body=None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.body = body or message
 
 
 def _codex_request_kwargs():
@@ -1940,6 +1948,46 @@ def test_run_conversation_codex_preserves_encrypted_reasoning_in_interim(monkeyp
     assert len(interim_msgs) >= 1
     assert interim_msgs[0].get("codex_reasoning_items") is not None
     assert interim_msgs[0]["codex_reasoning_items"][0]["encrypted_content"] == "enc_opaque_blob"
+
+
+def test_codex_strips_persisted_encrypted_reasoning_before_request(monkeypatch):
+    """Persisted native-Codex encrypted_content is not durable across turns."""
+    agent = _build_agent(monkeypatch)
+    agent.client = MagicMock()
+    agent._session_db = MagicMock()
+    agent.session_id = "session-codex-stale"
+    agent._session_db_created = True
+    agent._last_flushed_db_idx = 2
+
+    history = [
+        {"role": "user", "content": "Think first."},
+        {
+            "role": "assistant",
+            "content": "",
+            "finish_reason": "incomplete",
+            "codex_reasoning_items": [
+                {"type": "reasoning", "id": "rs_old", "encrypted_content": "enc_stale"}
+            ],
+        },
+    ]
+    calls = []
+
+    def _fake_call(api_kwargs):
+        calls.append(api_kwargs)
+        assert not any(item.get("type") == "reasoning" for item in api_kwargs["input"])
+        return _codex_message_response("Recovered.")
+
+    monkeypatch.setattr(agent, "_interruptible_api_call", _fake_call)
+
+    result = agent.run_conversation("Continue.", conversation_history=history)
+
+    assert result["completed"] is True
+    assert result["final_response"] == "Recovered."
+    assert len(calls) == 1
+    rewritten = agent._session_db.replace_messages.call_args.args[1]
+    assert all("codex_reasoning_items" not in msg for msg in rewritten)
+    assert all("codex_reasoning_items" not in msg for msg in result["messages"][:-1])
+    assert agent._last_flushed_db_idx == len(result["messages"])
 
 
 def test_chat_messages_to_responses_input_reasoning_only_has_following_item(monkeypatch):

@@ -555,8 +555,11 @@ def classify_api_error(
     # The message pattern ("signature" + "thinking") is unique enough.
     if (
         status_code == 400
-        and "signature" in error_msg
         and "thinking" in error_msg
+        and (
+            "signature" in error_msg
+            or ("cannot be modified" in error_msg and "latest assistant message" in error_msg)
+        )
     ):
         return _result(
             FailoverReason.thinking_signature,

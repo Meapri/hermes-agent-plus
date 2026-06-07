@@ -39,6 +39,10 @@ import httpx
 
 from agent import google_oauth
 from agent.gemini_schema import sanitize_gemini_tool_parameters
+from agent.gemini_native_adapter import (
+    translate_gemini_response as _native_translate_gemini_response,
+    translate_stream_event as _native_translate_stream_event,
+)
 from agent.google_code_assist import (
     CODE_ASSIST_ENDPOINT,
     CodeAssistError,
@@ -113,7 +117,12 @@ def _translate_tool_result_to_gemini(message: Dict[str, Any]) -> Dict[str, Any]:
     look up ``name`` on the message (OpenAI SDK copies it there) or on the
     ``tool_call_id`` cross-reference.
     """
-    name = str(message.get("name") or message.get("tool_call_id") or "tool")
+    name = str(
+        message.get("name")
+        or message.get("tool_name")
+        or message.get("tool_call_id")
+        or "tool"
+    )
     content = _coerce_content_to_text(message.get("content"))
     # Gemini expects the response as a dict under `response`. We wrap plain
     # text in {"output": "..."}.
@@ -133,11 +142,52 @@ def _translate_tool_result_to_gemini(message: Dict[str, Any]) -> Dict[str, Any]:
 def _build_gemini_contents(
     messages: List[Dict[str, Any]],
 ) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """Convert OpenAI messages[] to Gemini contents[] + systemInstruction."""
+    """Convert OpenAI messages[] to Gemini contents[] + systemInstruction.
+
+    Code Assist is stricter than OpenAI/Codex about tool adjacency: a
+    functionResponse turn must immediately follow a functionCall turn, and a
+    functionCall turn must follow a user turn or a prior functionResponse turn.
+    Gateway history can be sliced/resumed in the middle of a tool exchange, so
+    normalize those fragments here instead of forwarding an invalid transcript.
+    """
     system_text_parts: List[str] = []
     contents: List[Dict[str, Any]] = []
+    last_turn_kind: Optional[str] = None  # user | model | function_call | function_response
+    pending_function_call_idx: Optional[int] = None
+    pending_function_call_names: Dict[str, str] = {}
 
-    for msg in messages:
+    def _has_part(turn: Dict[str, Any], key: str) -> bool:
+        return any(isinstance(p, dict) and key in p for p in turn.get("parts", []))
+
+    def _clear_pending_function_call_if_unanswered() -> None:
+        """Drop/strip an unanswered functionCall before appending non-tool turns."""
+        nonlocal pending_function_call_idx, last_turn_kind
+        if pending_function_call_idx is None:
+            return
+        if 0 <= pending_function_call_idx < len(contents):
+            turn = contents[pending_function_call_idx]
+            parts = [p for p in turn.get("parts", []) if not (isinstance(p, dict) and "functionCall" in p)]
+            if parts:
+                turn["parts"] = parts
+                last_turn_kind = "model"
+            else:
+                del contents[pending_function_call_idx]
+                if contents:
+                    prev = contents[-1]
+                    if _has_part(prev, "functionResponse"):
+                        last_turn_kind = "function_response"
+                    elif prev.get("role") == "user":
+                        last_turn_kind = "user"
+                    else:
+                        last_turn_kind = "model"
+                else:
+                    last_turn_kind = None
+        pending_function_call_idx = None
+
+    idx = 0
+    while idx < len(messages):
+        msg = messages[idx]
+        idx += 1
         if not isinstance(msg, dict):
             continue
         role = str(msg.get("role") or "user")
@@ -146,12 +196,37 @@ def _build_gemini_contents(
             system_text_parts.append(_coerce_content_to_text(msg.get("content")))
             continue
 
-        # Tool result message — emit a user-role turn with functionResponse
+        # Tool result messages must be a single user-role functionResponse turn
+        # immediately after a model functionCall turn. Combine consecutive tool
+        # results so parallel tool calls remain one valid Gemini response turn.
         if role == "tool" or role == "function":
-            contents.append({
-                "role": "user",
-                "parts": [_translate_tool_result_to_gemini(msg)],
-            })
+            if pending_function_call_idx is None or last_turn_kind != "function_call":
+                # Orphaned tool output from a sliced/resumed transcript.
+                continue
+            def _with_function_name(tool_msg: Dict[str, Any]) -> Dict[str, Any]:
+                if tool_msg.get("name") or tool_msg.get("tool_name"):
+                    return tool_msg
+                call_id = tool_msg.get("tool_call_id") or tool_msg.get("id")
+                name = pending_function_call_names.get(str(call_id)) if call_id else None
+                if not name:
+                    return tool_msg
+                return {**tool_msg, "name": name}
+
+            response_parts = [_translate_tool_result_to_gemini(_with_function_name(msg))]
+            while idx < len(messages):
+                nxt = messages[idx]
+                if not isinstance(nxt, dict):
+                    idx += 1
+                    continue
+                nxt_role = str(nxt.get("role") or "user")
+                if nxt_role not in {"tool", "function"}:
+                    break
+                response_parts.append(_translate_tool_result_to_gemini(_with_function_name(nxt)))
+                idx += 1
+            contents.append({"role": "user", "parts": response_parts})
+            pending_function_call_idx = None
+            pending_function_call_names = {}
+            last_turn_kind = "function_response"
             continue
 
         gemini_role = _ROLE_MAP_OPENAI_TO_GEMINI.get(role, "user")
@@ -161,20 +236,55 @@ def _build_gemini_contents(
         if text:
             parts.append({"text": text})
 
-        # Assistant messages can carry tool_calls
+        tool_call_parts: List[Dict[str, Any]] = []
         tool_calls = msg.get("tool_calls") or []
         if isinstance(tool_calls, list):
             for tc in tool_calls:
                 if isinstance(tc, dict):
-                    parts.append(_translate_tool_call_to_gemini(tc))
+                    tool_call_parts.append(_translate_tool_call_to_gemini(tc))
+
+        if tool_call_parts:
+            # Code Assist only accepts functionCall after user/functionResponse.
+            if last_turn_kind in {"user", "function_response"}:
+                parts.extend(tool_call_parts)
+            else:
+                # Orphaned assistant tool-call fragment. Preserve any text but
+                # drop calls whose required surrounding turns are missing.
+                logger.debug("Dropping orphaned Gemini functionCall turn during transcript normalization")
 
         if not parts:
             # Gemini rejects empty parts; skip the turn entirely
             continue
 
-        contents.append({"role": gemini_role, "parts": parts})
+        if pending_function_call_idx is not None:
+            _clear_pending_function_call_if_unanswered()
+
+        turn = {"role": gemini_role, "parts": parts}
+        contents.append(turn)
+        if _has_part(turn, "functionCall"):
+            pending_function_call_idx = len(contents) - 1
+            pending_function_call_names = {}
+            for part in turn.get("parts", []):
+                if not isinstance(part, dict):
+                    continue
+                fc = part.get("functionCall")
+                if isinstance(fc, dict) and fc.get("id") and fc.get("name"):
+                    pending_function_call_names[str(fc["id"])] = str(fc["name"])
+            last_turn_kind = "function_call"
+        elif gemini_role == "user":
+            last_turn_kind = "user"
+        else:
+            last_turn_kind = "model"
 
     system_instruction: Optional[Dict[str, Any]] = None
+    if not contents:
+        contents.append({
+            "role": "user",
+            "parts": [{
+                "text": "[Previous conversation fragment omitted because it began in the middle of an incomplete tool-call exchange.]"
+            }],
+        })
+
     joined_system = "\n".join(p for p in system_text_parts if p).strip()
     if joined_system:
         system_instruction = {
@@ -321,85 +431,16 @@ def _translate_gemini_response(
     resp: Dict[str, Any],
     model: str,
 ) -> SimpleNamespace:
-    """Non-streaming Gemini response -> OpenAI-shaped SimpleNamespace.
+    """Non-streaming Code Assist response -> OpenAI-shaped response.
 
-    Code Assist wraps the actual Gemini response inside ``response``, so we
-    unwrap it first if present.
+    Code Assist and Antigravity wrap the same Gemini native response shape under
+    ``response``.  Keep only the unwrap here and delegate candidates/parts,
+    reasoning, usage, thought signatures, and tool-call conversion to the
+    canonical Gemini native adapter so Google API-key and Google-login paths stay
+    behaviorally aligned.
     """
     inner = resp.get("response") if isinstance(resp.get("response"), dict) else resp
-
-    candidates = inner.get("candidates") or []
-    if not isinstance(candidates, list) or not candidates:
-        return _empty_response(model)
-
-    cand = candidates[0]
-    content_obj = cand.get("content") if isinstance(cand, dict) else {}
-    parts = content_obj.get("parts") if isinstance(content_obj, dict) else []
-
-    text_pieces: List[str] = []
-    reasoning_pieces: List[str] = []
-    tool_calls: List[SimpleNamespace] = []
-
-    for i, part in enumerate(parts or []):
-        if not isinstance(part, dict):
-            continue
-        # Thought parts are model's internal reasoning — surface as reasoning,
-        # don't mix into content.
-        if part.get("thought") is True:
-            if isinstance(part.get("text"), str):
-                reasoning_pieces.append(part["text"])
-            continue
-        if isinstance(part.get("text"), str):
-            text_pieces.append(part["text"])
-            continue
-        fc = part.get("functionCall")
-        if isinstance(fc, dict) and fc.get("name"):
-            try:
-                args_str = json.dumps(fc.get("args") or {}, ensure_ascii=False)
-            except (TypeError, ValueError):
-                args_str = "{}"
-            tool_calls.append(SimpleNamespace(
-                id=f"call_{uuid.uuid4().hex[:12]}",
-                type="function",
-                index=i,
-                function=SimpleNamespace(name=str(fc["name"]), arguments=args_str),
-            ))
-
-    finish_reason = "tool_calls" if tool_calls else _map_gemini_finish_reason(
-        str(cand.get("finishReason") or "")
-    )
-
-    usage_meta = inner.get("usageMetadata") or {}
-    usage = SimpleNamespace(
-        prompt_tokens=int(usage_meta.get("promptTokenCount") or 0),
-        completion_tokens=int(usage_meta.get("candidatesTokenCount") or 0),
-        total_tokens=int(usage_meta.get("totalTokenCount") or 0),
-        prompt_tokens_details=SimpleNamespace(
-            cached_tokens=int(usage_meta.get("cachedContentTokenCount") or 0),
-        ),
-    )
-
-    message = SimpleNamespace(
-        role="assistant",
-        content="".join(text_pieces) if text_pieces else None,
-        tool_calls=tool_calls or None,
-        reasoning="".join(reasoning_pieces) or None,
-        reasoning_content="".join(reasoning_pieces) or None,
-        reasoning_details=None,
-    )
-    choice = SimpleNamespace(
-        index=0,
-        message=message,
-        finish_reason=finish_reason,
-    )
-    return SimpleNamespace(
-        id=f"chatcmpl-{uuid.uuid4().hex[:12]}",
-        object="chat.completion",
-        created=int(time.time()),
-        model=model,
-        choices=[choice],
-        usage=usage,
-    )
+    return _native_translate_gemini_response(inner if isinstance(inner, dict) else {}, model=model)
 
 
 def _empty_response(model: str) -> SimpleNamespace:
@@ -509,63 +550,32 @@ def _iter_sse_events(response: httpx.Response) -> Iterator[Dict[str, Any]]:
 def _translate_stream_event(
     event: Dict[str, Any],
     model: str,
-    tool_call_counter: List[int],
-) -> List[_GeminiStreamChunk]:
-    """Unwrap Code Assist envelope and emit OpenAI-shaped chunk(s).
+    tool_call_counter: Any,
+) -> List[Any]:
+    """Unwrap Code Assist envelope and delegate stream chunks to Gemini native.
 
-    ``tool_call_counter`` is a single-element list used as a mutable counter
-    across events in the same stream. Each ``functionCall`` part gets a
-    fresh, unique OpenAI ``index`` — keying by function name would collide
-    whenever the model issues parallel calls to the same tool (e.g. reading
-    three files in one turn).
+    The SSE payload inside Code Assist/Antigravity is the same Gemini native
+    ``GenerateContentResponse`` event.  Reuse the native translator so streaming
+    text, reasoning, usage, thought signatures, and incremental tool-call
+    argument handling match the API-key Gemini provider.
     """
     inner = event.get("response") if isinstance(event.get("response"), dict) else event
-    candidates = inner.get("candidates") or []
-    if not candidates:
+    if not isinstance(inner, dict):
         return []
-    cand = candidates[0]
-    if not isinstance(cand, dict):
-        return []
-
-    chunks: List[_GeminiStreamChunk] = []
-
-    content = cand.get("content") or {}
-    parts = content.get("parts") if isinstance(content, dict) else []
-    for part in parts or []:
-        if not isinstance(part, dict):
-            continue
-        if part.get("thought") is True and isinstance(part.get("text"), str):
-            chunks.append(_make_stream_chunk(
-                model=model, reasoning=part["text"],
-            ))
-            continue
-        if isinstance(part.get("text"), str) and part["text"]:
-            chunks.append(_make_stream_chunk(model=model, content=part["text"]))
-        fc = part.get("functionCall")
-        if isinstance(fc, dict) and fc.get("name"):
-            name = str(fc["name"])
-            idx = tool_call_counter[0]
-            tool_call_counter[0] += 1
-            try:
-                args_str = json.dumps(fc.get("args") or {}, ensure_ascii=False)
-            except (TypeError, ValueError):
-                args_str = "{}"
-            chunks.append(_make_stream_chunk(
-                model=model,
-                tool_call_delta={
-                    "index": idx,
-                    "name": name,
-                    "arguments": args_str,
-                },
-            ))
-
-    finish_reason_raw = str(cand.get("finishReason") or "")
-    if finish_reason_raw:
-        mapped = _map_gemini_finish_reason(finish_reason_raw)
-        if tool_call_counter[0] > 0:
-            mapped = "tool_calls"
-        chunks.append(_make_stream_chunk(model=model, finish_reason=mapped))
-    return chunks
+    if isinstance(tool_call_counter, dict):
+        state = tool_call_counter
+    elif isinstance(tool_call_counter, list):
+        if tool_call_counter and isinstance(tool_call_counter[0], dict):
+            state = tool_call_counter[0]
+        else:
+            state = {}
+            if tool_call_counter:
+                tool_call_counter[0] = state
+            else:
+                tool_call_counter.append(state)
+    else:
+        state = {}
+    return _native_translate_stream_event(inner, model, state)
 
 
 # =============================================================================

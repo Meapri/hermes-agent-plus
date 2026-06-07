@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 import os
 import re
 import sys
+
+
+
 import tempfile
 import time
 import threading
@@ -1461,16 +1464,111 @@ class AIAgent:
             if isinstance(msg, dict) and msg.get("role") == "user":
                 msg["content"] = override
 
+    def _codex_reasoning_items_are_durable(self) -> bool:
+        """Whether encrypted Codex reasoning state may be replayed next turn."""
+        return self.api_mode == "codex_responses" and self.provider == "xai-oauth"
+
+    def _strip_nondurable_codex_reasoning_items(self, messages: List[Dict]) -> int:
+        """Remove provider-private encrypted Codex state that cannot survive turns.
+
+        Native ChatGPT/Codex encrypted_content is only safe as an in-flight
+        continuation hint. Persisting it in Hermes makes later gateway turns
+        replay stale opaque blobs and trigger invalid_encrypted_content.
+        """
+        if self.api_mode != "codex_responses" or self._codex_reasoning_items_are_durable():
+            return 0
+        stripped = 0
+        for msg in messages:
+            if isinstance(msg, dict) and msg.pop("codex_reasoning_items", None):
+                stripped += 1
+        return stripped
+
+    def _messages_for_persistence(self, messages: List[Dict]) -> List[Dict]:
+        """Return a transcript-safe message list for durable storage."""
+        if self.api_mode != "codex_responses" or self._codex_reasoning_items_are_durable():
+            return messages
+        persisted = copy.deepcopy(messages)
+        self._strip_nondurable_codex_reasoning_items(persisted)
+        return persisted
+
     def _persist_session(self, messages: List[Dict], conversation_history: List[Dict] = None):
         """Save session state to both JSON log and SQLite on any exit path.
 
         Ensures conversations are never lost, even on errors or early returns.
         """
         self._drop_trailing_empty_response_scaffolding(messages)
+        self._drop_empty_response_recovery_scaffolding_anywhere(messages)
         self._apply_persist_user_message_override(messages)
-        self._session_messages = messages
-        self._save_session_log(messages)
-        self._flush_messages_to_session_db(messages, conversation_history)
+        persisted_messages = self._messages_for_persistence(messages)
+        self._session_messages = persisted_messages
+        self._save_session_log(persisted_messages)
+        self._flush_messages_to_session_db(persisted_messages, conversation_history)
+
+    @staticmethod
+    def _is_empty_response_recovery_user_message(msg: Dict[str, Any]) -> bool:
+        content = msg.get("content")
+        return (
+            msg.get("role") == "user"
+            and isinstance(content, str)
+            and content.startswith(
+                "Your previous response was empty. The tool results are above."
+            )
+        )
+
+    @classmethod
+    def _drop_empty_response_recovery_scaffolding_anywhere(
+        cls, messages: List[Dict]
+    ) -> int:
+        """Remove internal empty-response recovery turns that became durable.
+
+        The normal path keeps these messages at the transcript tail and strips
+        them before persistence. Older code could leave them in the middle when
+        a recovery retry later produced tool calls, so scrub by shape too.
+        """
+        removed = 0
+        i = 0
+        while i < len(messages):
+            msg = messages[i]
+            if not isinstance(msg, dict):
+                i += 1
+                continue
+
+            if (
+                msg.get("_empty_recovery_synthetic")
+                or msg.get("_empty_terminal_sentinel")
+                or msg.get("_thinking_prefill")
+            ):
+                messages.pop(i)
+                removed += 1
+                continue
+
+            next_msg = messages[i + 1] if i + 1 < len(messages) else None
+            if (
+                msg.get("role") == "assistant"
+                and msg.get("content") == "(empty)"
+                and isinstance(next_msg, dict)
+                and cls._is_empty_response_recovery_user_message(next_msg)
+            ):
+                del messages[i : i + 2]
+                removed += 2
+                continue
+
+            if (
+                msg.get("role") == "assistant"
+                and msg.get("content") == "(empty)"
+                and (msg.get("reasoning") or msg.get("reasoning_content"))
+            ):
+                messages.pop(i)
+                removed += 1
+                continue
+
+            if cls._is_empty_response_recovery_user_message(msg):
+                messages.pop(i)
+                removed += 1
+                continue
+
+            i += 1
+        return removed
 
     def _drop_trailing_empty_response_scaffolding(self, messages: List[Dict]) -> None:
         """Remove private empty-response retry/failure scaffolding from transcript tails.
@@ -1539,6 +1637,7 @@ class AIAgent:
         """
         if not self._session_db:
             return
+        messages = self._messages_for_persistence(messages)
         self._apply_persist_user_message_override(messages)
         try:
             # Retry row creation if the earlier attempt failed transiently.

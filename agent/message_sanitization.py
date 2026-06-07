@@ -203,6 +203,28 @@ def _repair_tool_call_arguments(raw_args: str, tool_name: str = "?") -> str:
         logger.warning("Sanitized Python-None tool_call arguments for %s", tool_name)
         return "{}"
 
+    # Repair pass -1: concatenated JSON objects — some models (and the
+    # pre-call sanitizer) can produce ``{...}{...}`` when tool-call
+    # argument JSON gets concatenated.  Take only the first complete
+    # JSON value so the tool executes with its original arguments rather
+    # than being silently replaced with ``{}``.
+    if raw_stripped.startswith("{") or raw_stripped.startswith("["):
+        try:
+            dec = json.JSONDecoder()
+            first_obj, end_idx = dec.raw_decode(raw_stripped)
+            remainder = raw_stripped[end_idx:].strip()
+            if remainder:
+                # There's trailing data after the first JSON value — take just the first.
+                reserialised = json.dumps(first_obj, separators=(",", ":"))
+                logger.warning(
+                    "Repaired concatenated JSON in tool_call arguments for %s "
+                    "(took first object, dropped %d trailing chars)",
+                    tool_name, len(remainder),
+                )
+                return reserialised
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
     # Repair pass 0: llama.cpp backends sometimes emit literal control
     # characters (tabs, newlines) inside JSON string values. json.loads
     # with strict=False accepts these and lets us re-serialise the

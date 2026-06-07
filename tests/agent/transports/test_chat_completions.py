@@ -12,6 +12,16 @@ def transport():
     import agent.transports.chat_completions  # noqa: F401
     return get_transport("chat_completions")
 
+    def test_convert_messages_can_preserve_tool_name_for_google_adapters(self, transport):
+        msgs = [
+            {"role": "user", "content": "hi"},
+            {"role": "tool", "tool_call_id": "call_1", "tool_name": "session_search",
+             "content": "result"},
+        ]
+        result = transport.convert_messages(msgs, preserve_tool_name=True)
+        assert result is msgs
+        assert result[1]["tool_name"] == "session_search"
+
 
 class TestChatCompletionsBasic:
 

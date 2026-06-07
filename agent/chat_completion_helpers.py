@@ -733,6 +733,7 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
             anthropic_max_output=_ant_max,
             supports_reasoning=agent._supports_reasoning_extra_body(),
             qwen_session_metadata=_qwen_meta,
+            provider_name=agent.provider,
         )
 
     # ── Legacy flag path ────────────────────────────────────────────
@@ -1281,7 +1282,13 @@ def handle_max_iterations(agent, messages: list, api_call_count: int) -> str:
         for msg in messages:
             api_msg = msg.copy()
             agent._copy_reasoning_content_for_api(msg, api_msg)
-            for internal_field in ("reasoning", "finish_reason", "_thinking_prefill"):
+            for internal_field in (
+                "reasoning",
+                "finish_reason",
+                "_thinking_prefill",
+                "_empty_recovery_synthetic",
+                "_empty_terminal_sentinel",
+            ):
                 api_msg.pop(internal_field, None)
             # Strict OpenAI-compatible gateways (Fireworks-backed OpenCode Go,
             # Mistral, Moonshot/Kimi) reject any message key outside the Chat

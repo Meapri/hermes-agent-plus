@@ -206,6 +206,12 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         auth_type="oauth_external",
         inference_base_url=DEFAULT_GEMINI_CLOUDCODE_BASE_URL,
     ),
+    "google-antigravity": ProviderConfig(
+        id="google-antigravity",
+        name="Google Antigravity (OAuth)",
+        auth_type="oauth_external",
+        inference_base_url="cloudcode-pa://antigravity",
+    ),
     "lmstudio": ProviderConfig(
         id="lmstudio",
         name="LM Studio",
@@ -1500,7 +1506,9 @@ def resolve_provider(
         "github-models": "copilot", "github-model": "copilot",
         "github-copilot-acp": "copilot-acp", "copilot-acp-agent": "copilot-acp",
         "opencode": "opencode-zen", "zen": "opencode-zen",
-        "qwen-portal": "qwen-oauth", "qwen-cli": "qwen-oauth", "qwen-oauth": "qwen-oauth", "google-gemini-cli": "google-gemini-cli", "gemini-cli": "google-gemini-cli", "gemini-oauth": "google-gemini-cli",
+        "qwen-portal": "qwen-oauth", "qwen-cli": "qwen-oauth", "qwen-oauth": "qwen-oauth", 
+        "google-gemini-cli": "google-gemini-cli", "gemini-cli": "google-gemini-cli", "gemini-oauth": "google-gemini-cli",
+        "google-antigravity": "google-antigravity", "antigravity": "google-antigravity", "antigravity-oauth": "google-antigravity",
         "hf": "huggingface", "hugging-face": "huggingface", "huggingface-hub": "huggingface",
         "mimo": "xiaomi", "xiaomi-mimo": "xiaomi",
         "tencent": "tencent-tokenhub", "tokenhub": "tencent-tokenhub",
@@ -2202,6 +2210,61 @@ def get_gemini_oauth_auth_status() -> Dict[str, Any]:
         "email": creds.email,
         "project_id": creds.project_id,
     }
+def resolve_antigravity_oauth_runtime_credentials(
+    *, force_refresh: bool = False
+):
+    from agent.google_antigravity_oauth import (
+        _credentials_path,
+        get_valid_access_token,
+        load_credentials,
+    )
+
+    try:
+        access_token = get_valid_access_token(force_refresh=force_refresh)
+    except Exception as exc:
+        raise AuthError(
+            str(exc),
+            provider="google-antigravity",
+            code="antigravity_oauth_token_error",
+        ) from exc
+
+    creds = load_credentials()
+    return {
+        "provider": "google-antigravity",
+        "base_url": "cloudcode-pa://antigravity",
+        "api_key": access_token,
+        "source": "antigravity-oauth",
+        "expires_at_ms": (creds.expires_ms if creds else None),
+        "auth_file": str(_credentials_path()),
+        "email": (creds.email if creds else "") or "",
+        "project_id": (creds.project_id if creds else "") or "",
+    }
+
+
+def get_antigravity_oauth_auth_status() -> Dict[str, Any]:
+    try:
+        from agent.google_antigravity_oauth import _credentials_path, load_credentials
+    except ImportError:
+        return {"logged_in": False, "error": "agent.google_antigravity_oauth unavailable"}
+    auth_path = _credentials_path()
+    creds = load_credentials()
+    if creds is None or not creds.access_token:
+        return {
+            "logged_in": False,
+            "auth_file": str(auth_path),
+            "error": "not logged in",
+        }
+    return {
+        "logged_in": True,
+        "auth_file": str(auth_path),
+        "source": "antigravity-oauth",
+        "api_key": creds.access_token,
+        "expires_at_ms": creds.expires_ms,
+        "email": creds.email,
+        "project_id": creds.project_id,
+    }
+
+
 # Spotify auth — PKCE tokens stored in ~/.hermes/auth.json
 # =============================================================================
 
@@ -5756,6 +5819,8 @@ def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
         return get_qwen_auth_status()
     if target == "google-gemini-cli":
         return get_gemini_oauth_auth_status()
+    if target == "google-antigravity":
+        return get_antigravity_oauth_auth_status()
     if target == "minimax-oauth":
         return get_minimax_oauth_auth_status()
     if target == "copilot-acp":

@@ -255,18 +255,17 @@ KANBAN_GUIDANCE = (
 )
 
 TOOL_USE_ENFORCEMENT_GUIDANCE = (
-    "# Tool-use enforcement\n"
-    "You MUST use your tools to take action — do not describe what you would do "
-    "or plan to do without actually doing it. When you say you will perform an "
-    "action (e.g. 'I will run the tests', 'Let me check the file', 'I will create "
-    "the project'), you MUST immediately make the corresponding tool call in the same "
-    "response. Never end your turn with a promise of future action — execute it now.\n"
-    "Keep working until the task is actually complete. Do not stop with a summary of "
-    "what you plan to do next time. If you have tools available that can accomplish "
-    "the task, use them instead of telling the user what you would do.\n"
-    "Every response should either (a) contain tool calls that make progress, or "
-    "(b) deliver a final result to the user. Responses that only describe intentions "
-    "without acting are not acceptable."
+    "# Tool-use discipline\n"
+    "Use tools when they materially improve correctness, grounding, verification, "
+    "or task completion. Do not describe an action you can actually perform unless "
+    "you are about to perform it, but also do not call tools just to satisfy a tool-use habit.\n"
+    "For straightforward questions that can be answered from the provided context, answer directly — "
+    "do NOT reach for web_search, read_file, or terminal when the answer is already in the conversation.\n"
+    "Prefer a compact, purposeful tool plan: gather the necessary evidence, batch independent lookups when possible, "
+    "avoid repeating the same command/query without a new reason, skip re-reading files already shown in context, "
+    "and stop once you have enough information to answer, edit, or verify.\n"
+    "Every response should either (a) make useful progress with an appropriate amount of tool use, "
+    "or (b) deliver a final answer. Empty promises or performative tool calls are both unacceptable."
 )
 
 # Model name substrings that trigger tool-use enforcement guidance.
@@ -372,26 +371,39 @@ OPENAI_MODEL_EXECUTION_GUIDANCE = (
     "</missing_context>"
 )
 
-# Gemini/Gemma-specific operational guidance, adapted from OpenCode's gemini.txt.
-# Injected alongside TOOL_USE_ENFORCEMENT_GUIDANCE when the model is Gemini or Gemma.
+# Gemini/Gemma-specific operational guidance.
+# Replaces the earlier OpenCode-derived bullet list with a GPT-5.5-inspired
+# "engineering judgment" framing that Gemini responds to better than flat
+# prohibitions.  Injected alongside TOOL_USE_ENFORCEMENT_GUIDANCE.
 GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
-    "# Google model operational directives\n"
-    "Follow these operational rules strictly:\n"
-    "- **Absolute paths:** Always construct and use absolute file paths for all "
-    "file system operations. Combine the project root with relative paths.\n"
-    "- **Verify first:** Use read_file/search_files to check file contents and "
-    "project structure before making changes. Never guess at file contents.\n"
-    "- **Dependency checks:** Never assume a library is available. Check "
-    "package.json, requirements.txt, Cargo.toml, etc. before importing.\n"
-    "- **Conciseness:** Keep explanatory text brief — a few sentences, not "
-    "paragraphs. Focus on actions and results over narration.\n"
-    "- **Parallel tool calls:** When you need to perform multiple independent "
-    "operations (e.g. reading several files), make all the tool calls in a "
-    "single response rather than sequentially.\n"
-    "- **Non-interactive commands:** Use flags like -y, --yes, --non-interactive "
-    "to prevent CLI tools from hanging on prompts.\n"
-    "- **Keep going:** Work autonomously until the task is fully resolved. "
-    "Don't stop with a plan — execute it.\n"
+    "# Engineering judgment for tool use\n"
+    "You bring a senior engineer's judgment to tool use. "
+    "Tools exist to improve correctness and grounding, not to demonstrate thoroughness.\n\n"
+    "## Core principles\n"
+    "- Always use absolute file paths for all filesystem operations.\n"
+    "- Parallelize independent tool calls in a single response "
+    "(e.g. reading several files at once). Sequential round-trips for "
+    "independent lookups waste time.\n"
+    "- Before editing a file, verify its current content — but skip the "
+    "verification if you already read that file in this conversation.\n"
+    "- Use non-interactive flags (-y, --yes, --non-interactive) for CLI tools.\n\n"
+    "## Tool-call economy\n"
+    "Let the scale of tool use match the scale of the task. "
+    "A one-line config fix does not need a multi-step investigation.\n"
+    "- Do not re-read files already in context.\n"
+    "- Do not re-run the same query/command without a new reason.\n"
+    "- Do not add gratuitous verification steps for trivial changes.\n"
+    "- One well-chosen tool call beats three overlapping ones.\n\n"
+    "## Autonomy and persistence\n"
+    "Stay with the work until the task is genuinely handled — implementation, "
+    "verification, and a clear account of the outcome. "
+    "Do not stop at analysis or a half-finished fix. "
+    "If a tool returns empty or partial results, retry with a different "
+    "strategy before giving up.\n\n"
+    "## Conciseness\n"
+    "Keep explanatory text brief — a few sentences, not paragraphs. "
+    "Focus on actions and results. Let the shape of the answer "
+    "match the shape of the problem; if the task is tiny, a one-liner is fine."
 )
 
 

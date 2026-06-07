@@ -203,6 +203,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("restart", "Gracefully restart the gateway after draining active runs", "Session",
                gateway_only=True),
     CommandDef("usage", "Show token usage and rate limits for the current session", "Info"),
+    CommandDef("agyquota", "Show Google Antigravity plan and quota usage", "Info", cli_only=True),
     CommandDef("insights", "Show usage insights and analytics", "Info",
                args_hint="[days]"),
     CommandDef("platforms", "Show gateway/messaging platform status", "Info",
@@ -493,6 +494,7 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
     Plugin-registered slash commands that require arguments are **excluded**
     because plugins may not provide a no-arg usage fallback.
     """
+    from agent.i18n import t
     overrides = _resolve_config_gates()
     result: list[tuple[str, str]] = []
     for cmd in COMMAND_REGISTRY:
@@ -503,7 +505,12 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
         # the menu hurts discoverability (issue #24312).
         tg_name = _sanitize_telegram_name(cmd.name)
         if tg_name:
-            result.append((tg_name, cmd.description))
+            # Try to fetch localized description from ko.yaml/en.yaml via commands.<name>.desc
+            desc_key = f"commands.{cmd.name}"
+            localized_desc = t(desc_key, lang=None)
+            if localized_desc == desc_key:  # fallback if missing in translation catalog
+                localized_desc = cmd.description
+            result.append((tg_name, localized_desc))
     for name, description, args_hint in _iter_plugin_command_entries():
         if _requires_argument(args_hint):
             continue

@@ -3439,6 +3439,44 @@ def resolve_provider_client(
         return (_to_async_client(client, final_model, is_vision=is_vision) if async_mode
                 else (client, final_model))
 
+    # ── Google Antigravity (OAuth) ───────────────────────────────────
+    if provider == "google-antigravity":
+        from hermes_cli.auth import resolve_antigravity_oauth_runtime_credentials
+        from agent.google_antigravity_adapter import GoogleAntigravityClient
+        try:
+            creds = resolve_antigravity_oauth_runtime_credentials()
+            client = GoogleAntigravityClient(
+                api_key=creds.get("api_key", ""),
+                base_url=creds.get("base_url", ""),
+                project_id=creds.get("project_id", ""),
+                timeout=120,
+            )
+            final_model = model or "gemini-3.5-flash-high"
+            if async_mode:
+                import asyncio
+                class AsyncCompletionsProxy:
+                    def __init__(self, sync_client):
+                        self._sync_client = sync_client
+                    async def create(self, **kwargs):
+                        return await asyncio.to_thread(self._sync_client.chat.completions.create, **kwargs)
+                class AsyncChatProxy:
+                    def __init__(self, sync_client):
+                        self.completions = AsyncCompletionsProxy(sync_client)
+                class AsyncGoogleAntigravityClientProxy:
+                    def __init__(self, sync_client):
+                        self._sync_client = sync_client
+                        self.chat = AsyncChatProxy(sync_client)
+                        self.api_key = sync_client.api_key
+                        self.base_url = sync_client.base_url
+                    async def close(self):
+                        await asyncio.to_thread(self._sync_client.close)
+                async_client = AsyncGoogleAntigravityClientProxy(client)
+                return async_client, final_model
+            return client, final_model
+        except Exception as exc:
+            logger.warning("resolve_provider_client failed for google-antigravity: %s", exc)
+            return None, None
+
     # ── OpenAI Codex (OAuth → Responses API) ─────────────────────────
     if provider == "openai-codex":
         if not model:
@@ -3891,6 +3929,8 @@ def resolve_provider_client(
             return resolve_provider_client("nous", model, async_mode)
         if provider == "openai-codex":
             return resolve_provider_client("openai-codex", model, async_mode)
+        if provider == "google-antigravity":
+            return resolve_provider_client("google-antigravity", model, async_mode)
         if provider == "xai-oauth":
             return resolve_provider_client("xai-oauth", model, async_mode)
         # Other OAuth providers not directly supported

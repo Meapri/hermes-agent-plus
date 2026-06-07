@@ -8,6 +8,7 @@ def _agent_with_stubbed_persistence():
     agent._persist_user_message_idx = None
     agent._persist_user_message_override = None
     agent._session_db = None
+    agent.api_mode = "chat_completions"
     agent._session_messages = []
     agent.flushed_session_db_messages = []
     agent._flush_messages_to_session_db = lambda messages, conversation_history=None: (
@@ -72,6 +73,59 @@ def test_persist_session_keeps_unmarked_terminal_empty_response():
     assert messages == [
         {"role": "user", "content": "run the task"},
         {"role": "assistant", "content": "(empty)"},
+    ]
+    assert agent.flushed_session_db_messages[-1] == messages
+
+
+def test_persist_session_strips_unmarked_reasoning_empty_response():
+    agent = _agent_with_stubbed_persistence()
+    messages = [
+        {"role": "user", "content": "run the task"},
+        {"role": "assistant", "content": "(empty)", "reasoning": "thinking only"},
+    ]
+
+    AIAgent._persist_session(agent, messages, conversation_history=[])
+
+    assert messages == [
+        {"role": "user", "content": "run the task"},
+    ]
+    assert agent.flushed_session_db_messages[-1] == messages
+
+
+def test_persist_session_strips_mid_transcript_empty_recovery_scaffolding():
+    agent = _agent_with_stubbed_persistence()
+    messages = [
+        {"role": "user", "content": "run the task"},
+        {"role": "assistant", "content": "(empty)", "reasoning": "still thinking"},
+        {
+            "role": "user",
+            "content": (
+                "Your previous response was empty. The tool results are above. "
+                "Summarize the key findings and answer the user's question now."
+            ),
+        },
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": "call_1", "type": "function",
+                            "function": {"name": "x", "arguments": "{}"}}],
+        },
+        {"role": "tool", "content": "{}", "tool_call_id": "call_1"},
+        {"role": "assistant", "content": "done"},
+    ]
+
+    AIAgent._persist_session(agent, messages, conversation_history=[])
+
+    assert messages == [
+        {"role": "user", "content": "run the task"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": "call_1", "type": "function",
+                            "function": {"name": "x", "arguments": "{}"}}],
+        },
+        {"role": "tool", "content": "{}", "tool_call_id": "call_1"},
+        {"role": "assistant", "content": "done"},
     ]
     assert agent.flushed_session_db_messages[-1] == messages
 

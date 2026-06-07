@@ -1270,6 +1270,19 @@ def create_openai_client(agent, client_kwargs: dict, *, reason: str, shared: boo
     client_kwargs = dict(client_kwargs)
     _validate_proxy_env_urls()
     _validate_base_url(client_kwargs.get("base_url"))
+    if agent.provider == "google-antigravity" or str(client_kwargs.get("base_url", "")).startswith("cloudcode-pa://antigravity"):
+        from agent.google_antigravity_adapter import GoogleAntigravityClient
+        safe_kwargs = {
+            k: v for k, v in client_kwargs.items()
+            if k in {"api_key", "base_url", "default_headers", "project_id", "timeout"}
+        }
+        client = GoogleAntigravityClient(**safe_kwargs)
+        _ra().logger.info(
+            "Google Antigravity client created (%s, shared=%s)",
+            reason,
+            shared,
+        )
+        return client
     if agent.provider == "copilot-acp" or str(client_kwargs.get("base_url", "")).startswith("acp://copilot"):
         from agent.copilot_acp_client import CopilotACPClient
 
@@ -1912,6 +1925,71 @@ def sanitize_api_messages(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]
             continue
         filtered.append(msg)
     messages = filtered
+
+    # Provider-facing replay must never carry pasted credentials from old
+    # gateway/tool history. OpenAI/Codex tolerates opaque token-looking text, but
+    # Google Code Assist rejects some credential shapes at request validation time
+    # with generic HTTP 400 INVALID_ARGUMENT. Redact recursively right before the
+    # API call so even pre-existing transcripts/log tool outputs are safe.
+    try:
+        from agent.redact import redact_sensitive_text
+
+        def _redact_value(value: Any) -> Any:
+            if isinstance(value, str):
+                return redact_sensitive_text(value, force=True)
+            if isinstance(value, list):
+                return [_redact_value(item) for item in value]
+            if isinstance(value, dict):
+                return {key: _redact_value(item) for key, item in value.items()}
+            return value
+
+        def _redact_json_string(value: str) -> str:
+            """Redact inside a JSON-encoded string while preserving valid JSON.
+
+            Tool call arguments are stored as JSON strings. Running generic
+            regex redaction directly over that escaped JSON can consume an
+            escaped quote/comma around ENV-style values (e.g.
+            ``DISCORD_BOT_TOKEN=*** and corrupt the tool-call argument
+            payload. Parse first, redact scalar values, then re-serialize.
+
+            IMPORTANT: if parsing fails, return the ORIGINAL value unchanged.
+            Applying ``redact_sensitive_text`` to malformed JSON destroys the
+            structure and causes ``_repair_tool_call_arguments`` downstream to
+            give up and replace the entire payload with ``{}``, which silently
+            erases tool context from the conversation and makes the model lose
+            track of what it was doing.
+            """
+            if not isinstance(value, str):
+                return value
+            stripped = value.strip()
+            if not stripped or stripped[0] not in "[{":
+                return redact_sensitive_text(value, force=True)
+            try:
+                parsed = json.loads(stripped)
+            except (TypeError, ValueError):
+                # Cannot parse → return original to avoid corrupting JSON structure.
+                return value
+            return json.dumps(_redact_value(parsed), ensure_ascii=False, separators=(",", ":"))
+
+        copied_messages = copy.deepcopy(messages)
+        for msg in copied_messages:
+            if not isinstance(msg, dict):
+                continue
+            tool_calls = msg.get("tool_calls")
+            if isinstance(tool_calls, list):
+                for tc in tool_calls:
+                    if not isinstance(tc, dict):
+                        continue
+                    fn = tc.get("function")
+                    if isinstance(fn, dict) and isinstance(fn.get("arguments"), str):
+                        fn["arguments"] = _redact_json_string(fn["arguments"])
+            for key, value in list(msg.items()):
+                if key == "tool_calls":
+                    continue
+                msg[key] = _redact_value(value)
+        messages = copied_messages
+    except Exception:
+        _ra().logger.debug("Pre-call sanitizer: secret redaction skipped", exc_info=True)
 
     surviving_call_ids: set = set()
     for msg in messages:

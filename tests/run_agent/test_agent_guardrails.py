@@ -6,6 +6,7 @@ Covers three static methods on AIAgent (inspired by PR #1321 — @alireza78a):
   - _deduplicate_tool_calls()   — Phase 2b: identical call deduplication
 """
 
+import json
 import types
 
 from run_agent import AIAgent
@@ -107,6 +108,37 @@ class TestSanitizeApiMessages:
         out = AIAgent._sanitize_api_messages(msgs)
         assert len(out) == 2
         assert out[1]["tool_call_id"] == "c6"
+
+    def test_tool_call_argument_redaction_preserves_json_shape_when_runtime_redaction_disabled(self, monkeypatch):
+        # security.redact_secrets=false disables display/log masking, but
+        # provider-bound API sanitization must still use force=True so Google
+        # Code Assist never receives credential-looking payloads.
+        monkeypatch.setattr("agent.redact._REDACT_ENABLED", False)
+        raw_secret = "A" * 18 + "." + "B" * 8 + "." + "C" * 32
+        args = json.dumps({
+            "mode": "replace",
+            "path": "/home/ubuntu/.env",
+            "old_string": f"DISCORD_BOT_TOKEN={raw_secret}",
+            "new_string": f"DISCORD_BOT_TOKEN={raw_secret}",
+        })
+        msgs = [
+            {"role": "assistant", "tool_calls": [
+                {"id": "c_secret", "function": {"name": "patch", "arguments": args}},
+            ]},
+            tool_result("c_secret"),
+        ]
+
+        out = AIAgent._sanitize_api_messages(msgs)
+        redacted_args = out[0]["tool_calls"][0]["function"]["arguments"]
+        parsed = json.loads(redacted_args)
+
+        assert raw_secret not in redacted_args
+        assert parsed["mode"] == "replace"
+        assert parsed["path"] == "/home/ubuntu/.env"
+        assert parsed["old_string"].startswith("DISCORD_BOT_TOKEN=")
+        assert parsed["new_string"].startswith("DISCORD_BOT_TOKEN=")
+        assert "..." in parsed["old_string"]
+        assert "..." in parsed["new_string"]
 
 
 # ---------------------------------------------------------------------------

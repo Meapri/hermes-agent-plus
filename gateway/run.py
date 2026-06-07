@@ -33,6 +33,9 @@ import os
 import re
 import shlex
 import sys
+
+
+
 import signal
 import tempfile
 import threading
@@ -1589,6 +1592,14 @@ def _load_gateway_runtime_config() -> dict:
 
     expanded = _expand_env_vars(cfg)
     return expanded if isinstance(expanded, dict) else {}
+
+
+def _effective_max_iterations_for_model(model: str, runtime_kwargs: dict | None, configured_max: int) -> int:
+    """Return the configured gateway turn budget without model-specific caps."""
+    try:
+        return int(configured_max)
+    except Exception:
+        return 90
 
 
 def _resolve_gateway_model(config: dict | None = None) -> str:
@@ -8819,6 +8830,12 @@ class GatewayRunner:
             except Exception as exc:
                 logger.debug("@ context reference expansion failed: %s", exc)
 
+        try:
+            from agent.redact import redact_sensitive_text
+            message_text = redact_sensitive_text(message_text)
+        except Exception:
+            logger.debug("Inbound secret redaction skipped", exc_info=True)
+
         return message_text
 
     def _consume_pending_native_image_paths(self, session_key: str) -> List[str]:
@@ -9717,7 +9734,6 @@ class GatewayRunner:
                     "request entity too large", "prompt is too long",
                     "payload too large", "input is too long",
                 ))
-                or ("400" in _err_str_for_classify and len(history) > 50)
             )
             if is_context_overflow_failure:
                 logger.info(
@@ -12661,6 +12677,9 @@ class GatewayRunner:
             self._reasoning_config = reasoning_config
             self._service_tier = self._load_service_tier()
             turn_route = self._resolve_turn_agent_config(prompt, model, runtime_kwargs)
+            max_iterations = _effective_max_iterations_for_model(
+                turn_route["model"], turn_route["runtime"], max_iterations
+            )
 
             # Enrich the prompt with image descriptions so the background
             # agent can see user-attached images (same as the main flow).
@@ -17101,6 +17120,7 @@ class GatewayRunner:
         # Disable tool progress for webhooks - they don't support message editing,
         # so each progress line would be sent as a separate message.
         from gateway.config import Platform
+        tool_progress_streaming = progress_mode == "stream" and source.platform != Platform.WEBHOOK
         tool_progress_enabled = progress_mode != "off" and source.platform != Platform.WEBHOOK
         # Natural assistant status messages are intentionally independent from
         # tool progress and token streaming. Users can keep tool_progress quiet
@@ -17117,8 +17137,10 @@ class GatewayRunner:
             )
         )
         
-        # Queue for progress messages (thread-safe)
-        progress_queue = queue.Queue() if tool_progress_enabled else None
+        # Queue for progress messages (thread-safe). In "stream" mode, progress
+        # lines are injected into the active text stream instead of a separate
+        # editable progress bubble, so no queue/sender task is needed.
+        progress_queue = queue.Queue() if tool_progress_enabled and not tool_progress_streaming else None
         last_tool = [None]  # Mutable container for tracking in closure
         last_progress_msg = [None]  # Track last message for dedup
         repeat_count = [0]  # How many times the same message repeated
@@ -17188,8 +17210,22 @@ class GatewayRunner:
 
         def progress_callback(event_type: str, tool_name: str = None, preview: str = None, args: dict = None, **kwargs):
             """Callback invoked by agent on tool lifecycle events."""
-            if not progress_queue or not _run_still_current():
+            if not _run_still_current():
                 return
+            if not progress_queue and not tool_progress_streaming:
+                return
+
+            def _emit_progress_message(message):
+                if tool_progress_streaming:
+                    try:
+                        consumer = stream_consumer_holder[0]
+                    except Exception:
+                        consumer = None
+                    if consumer is not None:
+                        consumer.on_delta(f"\n\n{message}\n")
+                        return
+                if progress_queue is not None:
+                    progress_queue.put(message)
 
             # First-touch onboarding: the first time a tool takes longer than
             # _LONG_TOOL_THRESHOLD_S during a run that's streaming every tool
@@ -17214,7 +17250,7 @@ class GatewayRunner:
                         )
                         if gate_on and not is_seen(_cfg, TOOL_PROGRESS_FLAG):
                             long_tool_hint_fired[0] = True
-                            progress_queue.put(tool_progress_hint_gateway())
+                            _emit_progress_message(tool_progress_hint_gateway())
                             mark_seen(_hermes_home / "config.yaml", TOOL_PROGRESS_FLAG)
                 except Exception as _hint_err:
                     logger.debug("tool-progress onboarding hint failed: %s", _hint_err)
@@ -17266,7 +17302,7 @@ class GatewayRunner:
                     msg = f"{emoji} {tool_name}: \"{preview}\""
                 else:
                     msg = f"{emoji} {tool_name}..."
-                progress_queue.put(msg)
+                _emit_progress_message(msg)
                 return
             
             # "all" / "new" modes: short preview, respects tool_preview_length
@@ -17289,12 +17325,13 @@ class GatewayRunner:
                 repeat_count[0] += 1
                 # Update the last line in progress_lines with a counter
                 # via a special "dedup" queue message.
-                progress_queue.put(("__dedup__", msg, repeat_count[0]))
+                if progress_queue is not None:
+                    progress_queue.put(("__dedup__", msg, repeat_count[0]))
                 return
             last_progress_msg[0] = msg
             repeat_count[0] = 0
             
-            progress_queue.put(msg)
+            _emit_progress_message(msg)
         
         # Background task to send progress messages
         # Accumulates tool lines into a single message that gets edited.
@@ -17795,6 +17832,11 @@ class GatewayRunner:
             )
             self._reasoning_config = reasoning_config
             self._service_tier = self._load_service_tier()
+            turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
+            max_iterations = _effective_max_iterations_for_model(
+                turn_route["model"], turn_route["runtime"], max_iterations
+            )
+
             # Set up stream consumer for token streaming or interim commentary.
             _stream_consumer = None
             _stream_delta_cb = None
@@ -17898,8 +17940,6 @@ class GatewayRunner:
                     logger=logger,
                     log_message="interim_assistant_callback scheduling error",
                 )
-
-            turn_route = self._resolve_turn_agent_config(message, model, runtime_kwargs)
 
             # Check agent cache — reuse the AIAgent from the previous message
             # in this session to preserve the frozen system prompt and tool
@@ -18017,6 +18057,7 @@ class GatewayRunner:
             agent.notice_clear_callback = None
             agent.reasoning_config = reasoning_config
             agent.service_tier = self._service_tier
+            agent.max_iterations = max_iterations
             agent.request_overrides = turn_route.get("request_overrides") or {}
 
             _bg_review_release = threading.Event()
@@ -19804,7 +19845,12 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         # is one line, key=value, parent_cmdline last (often long).
         if _shutdown_ctx is not None:
             try:
-                logger.warning(
+                log_shutdown_context = logger.info if (
+                    planned_takeover
+                    or planned_stop
+                    or bool(_shutdown_ctx.get("under_systemd"))
+                ) else logger.warning
+                log_shutdown_context(
                     "Shutdown context: %s", format_context_for_log(_shutdown_ctx)
                 )
             except Exception as _e:
@@ -19977,9 +20023,15 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # `hermes gateway stop` and interactive Ctrl+C are handled above as
     # planned stops and should not trigger service-manager revival.
     if _signal_initiated_shutdown and not runner._restart_requested:
+        if os.getenv("INVOCATION_ID"):
+            logger.info(
+                "Exiting cleanly after systemd signal-initiated shutdown; "
+                "the unit's Restart policy handles relaunch when appropriate."
+            )
+            return True
         logger.info(
             "Exiting with code 1 (signal-initiated shutdown without restart "
-            "request) so systemd Restart=on-failure can revive the gateway."
+            "request) so a non-systemd supervisor can revive the gateway."
         )
         return False  # → sys.exit(1) in the caller
 

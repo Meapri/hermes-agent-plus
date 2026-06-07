@@ -65,6 +65,8 @@ import os
 import sys
 
 
+
+
 def _set_process_title() -> None:
     """Set the process title to 'hermes' so tools like 'ps', 'top', and
     'htop' show the app name instead of 'python3.xx'.
@@ -2453,6 +2455,8 @@ def _is_profile_api_key_provider(provider_id: str) -> bool:
     declared in plugins/model-providers/<name>/ automatically dispatch to _model_flow_api_key_provider
     without requiring an explicit elif branch here.
     """
+    if provider_id == "google-antigravity":
+        return True
     try:
         from providers import get_provider_profile
         _p = get_provider_profile(provider_id)
@@ -2802,6 +2806,8 @@ def select_provider_and_model(args=None):
         _model_flow_minimax_oauth(config, current_model, args=args)
     elif selected_provider == "google-gemini-cli":
         _model_flow_google_gemini_cli(config, current_model)
+    elif selected_provider == "google-antigravity":
+        _model_flow_google_antigravity(config, current_model)
     elif selected_provider == "copilot-acp":
         _model_flow_copilot_acp(config, current_model)
     elif selected_provider == "copilot":
@@ -5969,6 +5975,60 @@ def _model_flow_bedrock(config, current_model=""):
         print(f"  Default model set to: {selected} (via AWS Bedrock, {region})")
     else:
         print("  No change.")
+
+
+def _model_flow_google_antigravity(_config, current_model=""):
+    """Google Antigravity OAuth provider model picker flow.
+
+    Uses Google OAuth for auth — no API key needed.
+    Shows the curated model list and saves the selection.
+    """
+    from hermes_cli.auth import (
+        _prompt_model_selection,
+        _save_model_choice,
+        _update_config_for_provider,
+    )
+
+    # Verify credentials resolve
+    try:
+        from hermes_cli.auth import resolve_antigravity_oauth_runtime_credentials
+        creds = resolve_antigravity_oauth_runtime_credentials()
+        email = creds.get("email", "")
+        if email:
+            print(f"  Authenticated as: {email}")
+    except Exception as exc:
+        print(f"  Auth check failed: {exc}")
+        print("  Opening Google login for google-antigravity...")
+        try:
+            from agent.google_antigravity_oauth import run_antigravity_oauth_login_pure
+            from hermes_cli.auth import resolve_antigravity_oauth_runtime_credentials
+
+            login_creds = run_antigravity_oauth_login_pure()
+            email = str(login_creds.get("email", "") or "")
+            creds = resolve_antigravity_oauth_runtime_credentials()
+            email = str(creds.get("email", "") or email)
+            if email:
+                print(f"  Authenticated as: {email}")
+            else:
+                print("  Google Antigravity OAuth login completed.")
+        except Exception as login_exc:
+            print(f"  Google login failed: {login_exc}")
+            print("  You can retry with `hermes auth add google-antigravity`.")
+            return
+
+    from hermes_cli.models import _PROVIDER_MODELS
+    AG_MODELS = _PROVIDER_MODELS.get("google-antigravity", [])
+
+    default = current_model or (AG_MODELS[0] if AG_MODELS else "gemini-3.5-flash-high")
+    selected = _prompt_model_selection(AG_MODELS, current_model=default)
+    if selected:
+        _save_model_choice(selected)
+        _update_config_for_provider(
+            "google-antigravity", "cloudcode-pa://antigravity"
+        )
+        print(f"Default model set to: {selected} (via Google Antigravity)")
+    else:
+        print("No change.")
 
 
 def _model_flow_api_key_provider(config, provider_id, current_model=""):

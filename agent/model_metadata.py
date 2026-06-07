@@ -1691,6 +1691,18 @@ def get_model_context_length(
             if inferred:
                 effective_provider = inferred
 
+    # 5-antigravity. Google Antigravity Code Assist — effective Hermes context.
+    # Keep Hermes preflight compression aligned with each backend model's
+    # advertised maximum instead of compacting early. Runtime 400/context
+    # recovery still compresses if a particular account/route is capped lower.
+    if effective_provider == "google-antigravity":
+        normalized_model = str(model or "").strip().lower()
+        if "gpt-oss" in normalized_model:
+            return 131_072
+        if "claude" in normalized_model:
+            return 1_000_000
+        return 1_000_000
+
     # 5a. Copilot live /models API — max_prompt_tokens from the user's account.
     # This catches account-specific models (e.g. claude-opus-4.6-1m) that
     # don't exist in models.dev. For models that ARE in models.dev, this

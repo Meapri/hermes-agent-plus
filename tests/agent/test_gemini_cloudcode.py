@@ -633,6 +633,113 @@ class TestBuildGeminiRequest:
         assert fr_part["functionResponse"]["name"] == "get_weather"
         assert fr_part["functionResponse"]["response"] == {"temp": 72}
 
+    def test_tool_result_translation_uses_tool_name_from_session_db(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "tool_calls": [{
+                "id": "call_search", "type": "function",
+                "function": {"name": "session_search", "arguments": "{}"},
+            }]},
+            {
+                "role": "tool",
+                "tool_name": "session_search",
+                "tool_call_id": "call_search",
+                "content": '{"success": true}',
+            },
+        ])
+
+        last = req["contents"][-1]
+        fr_part = next(p for p in last["parts"] if "functionResponse" in p)
+        assert fr_part["functionResponse"]["name"] == "session_search"
+        assert fr_part["functionResponse"]["id"] == "call_search"
+
+    def test_tool_result_translation_recovers_name_from_prior_call_id(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "tool_calls": [{
+                "id": "call_search", "type": "function",
+                "function": {"name": "session_search", "arguments": "{}"},
+            }]},
+            {
+                "role": "tool",
+                "tool_call_id": "call_search",
+                "content": '{"success": true}',
+            },
+        ])
+
+        last = req["contents"][-1]
+        fr_part = next(p for p in last["parts"] if "functionResponse" in p)
+        assert fr_part["functionResponse"]["name"] == "session_search"
+        assert fr_part["functionResponse"]["id"] == "call_search"
+
+    def test_orphan_tool_result_is_dropped_for_code_assist_adjacency(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "tool", "name": "read_file", "tool_call_id": "c1", "content": "orphan"},
+            {"role": "user", "content": "continue"},
+        ])
+
+        assert req["contents"] == [{"role": "user", "parts": [{"text": "continue"}]}]
+
+    def test_orphan_tool_call_is_dropped_for_code_assist_adjacency(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "assistant", "content": "previous answer"},
+            {"role": "assistant", "tool_calls": [{
+                "id": "c1", "type": "function",
+                "function": {"name": "read_file", "arguments": "{}"},
+            }]},
+            {"role": "user", "content": "new turn"},
+        ])
+
+        assert all(
+            "functionCall" not in part
+            for turn in req["contents"]
+            for part in turn["parts"]
+        )
+        assert req["contents"][-1] == {"role": "user", "parts": [{"text": "new turn"}]}
+
+    def test_consecutive_tool_results_are_combined_for_code_assist(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "tool_calls": [
+                {"id": "c1", "type": "function", "function": {"name": "a", "arguments": "{}"}},
+                {"id": "c2", "type": "function", "function": {"name": "b", "arguments": "{}"}},
+            ]},
+            {"role": "tool", "name": "a", "tool_call_id": "c1", "content": "A"},
+            {"role": "tool", "name": "b", "tool_call_id": "c2", "content": "B"},
+        ])
+
+        response_turns = [
+            turn for turn in req["contents"]
+            if any("functionResponse" in part for part in turn["parts"])
+        ]
+        assert len(response_turns) == 1
+        assert len(response_turns[0]["parts"]) == 2
+
+    def test_all_orphan_tool_fragment_gets_placeholder_user_turn(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "assistant", "tool_calls": [{
+                "id": "c1", "type": "function",
+                "function": {"name": "read_file", "arguments": "{}"},
+            }]},
+            {"role": "tool", "name": "read_file", "tool_call_id": "c1", "content": "orphan"},
+        ])
+
+        assert len(req["contents"]) == 1
+        assert req["contents"][0]["role"] == "user"
+        assert "incomplete tool-call exchange" in req["contents"][0]["parts"][0]["text"]
+
     def test_tools_translated_to_function_declarations(self):
         from agent.gemini_cloudcode_adapter import build_gemini_request
 
@@ -872,10 +979,17 @@ class TestTranslateStreamEvent:
                                          tool_call_counter=counter)
         indices = [c.choices[0].delta.tool_calls[0].index for c in chunks]
         assert indices == [0, 1, 2]
-        assert counter[0] == 3
+        assert isinstance(counter[0], dict)
+        assert len(counter[0]) == 3
 
-    def test_counter_persists_across_events(self):
-        """Index assignment must continue across SSE events in the same stream."""
+    def test_native_stream_state_treats_same_part_as_incremental_tool_call(self):
+        """Match Gemini native streaming semantics.
+
+        Repeated events with the same part/name/signature represent incremental
+        updates for the same tool call, while a different part/name gets its own
+        index. This keeps Code Assist/Antigravity aligned with the API-key Gemini
+        provider.
+        """
         from agent.gemini_cloudcode_adapter import _translate_stream_event
 
         def _event(name):
@@ -890,7 +1004,8 @@ class TestTranslateStreamEvent:
 
         assert chunks_a[0].choices[0].delta.tool_calls[0].index == 0
         assert chunks_b[0].choices[0].delta.tool_calls[0].index == 1
-        assert chunks_c[0].choices[0].delta.tool_calls[0].index == 2
+        assert chunks_c[0].choices[0].delta.tool_calls[0].index == 0
+        assert chunks_c[0].choices[0].delta.tool_calls[0].function.arguments == ""
 
     def test_finish_reason_switches_to_tool_calls_when_any_seen(self):
         from agent.gemini_cloudcode_adapter import _translate_stream_event

@@ -1491,6 +1491,25 @@ def list_authenticated_providers(
                     has_creds = True
             except Exception as exc:
                 logger.debug("Anthropic external creds check failed: %s", exc)
+        # Fallback: check external credential files for Google OAuth providers.
+        # google-antigravity and google-gemini-cli store OAuth tokens in
+        # ~/.hermes/auth/ files that aren't in the auth store or credential
+        # pool, so we need to probe the file directly.
+        if not has_creds and hermes_slug in ("google-antigravity", "google-gemini-cli"):
+            try:
+                if hermes_slug == "google-antigravity":
+                    from agent.google_antigravity_oauth import load_credentials as _load_goog_creds
+                else:
+                    from agent.gemini_cloudcode_adapter import load_credentials as _load_goog_creds
+                _goog_creds = _load_goog_creds()
+                if _goog_creds and (
+                    getattr(_goog_creds, "access_token", None)
+                    or getattr(_goog_creds, "refresh_token", None)
+                    or (isinstance(_goog_creds, dict) and (_goog_creds.get("access_token") or _goog_creds.get("refresh_token")))
+                ):
+                    has_creds = True
+            except Exception as exc:
+                logger.debug("Google OAuth external creds check failed for %s: %s", hermes_slug, exc)
         if not has_creds:
             continue
 

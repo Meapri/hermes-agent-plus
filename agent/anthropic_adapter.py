@@ -280,6 +280,11 @@ _FAST_MODE_BETA = "fast-mode-2026-02-01"
 _OAUTH_ONLY_BETAS = [
     "claude-code-20250219",
     "oauth-2025-04-20",
+    "output-128k-2024-02-29",
+    "token-instantiation-2024-06-21",
+    "prompt-caching-2024-07-31",
+    "computer-use-2024-10-22",
+    "pdf-extract-2024-12-20",
 ]
 
 # Claude Code identity — required for OAuth requests to be routed correctly.
@@ -2299,5 +2304,13 @@ def build_anthropic_kwargs(
             betas.extend(_OAUTH_ONLY_BETAS)
         betas.append(_FAST_MODE_BETA)
         kwargs["extra_headers"] = {"anthropic-beta": ",".join(betas)}
+
+    if is_oauth:
+        try:
+            from agent.anthropic_billing_bypass import apply_claude_code_bypass
+            apply_claude_code_bypass(kwargs, _detect_claude_code_version())
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Failed to apply Claude Code billing bypass: %s", exc)
 
     return kwargs

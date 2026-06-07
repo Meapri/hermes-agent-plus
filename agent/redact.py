@@ -131,6 +131,14 @@ _TELEGRAM_RE = re.compile(
     r"(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})",
 )
 
+# Generic opaque credential tokens: multiple base64url-like segments separated
+# by dots. This intentionally avoids vendor-specific token names; it catches
+# pasted bot/API/session credentials that have no stable public prefix. JWTs are
+# handled separately above, but this also covers non-JWT opaque tokens.
+_OPAQUE_DOT_TOKEN_RE = re.compile(
+    r"(?<![A-Za-z0-9_.-])([A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{24,})(?![A-Za-z0-9_.-])"
+)
+
 # Private key blocks: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----
 _PRIVATE_KEY_RE = re.compile(
     r"-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----"
@@ -389,6 +397,11 @@ def redact_sensitive_text(text: str, *, force: bool = False, code_file: bool = F
             digits = m.group(2)
             return f"{prefix}{digits}:***"
         text = _TELEGRAM_RE.sub(_redact_telegram, text)
+
+    # Generic dot-separated opaque credentials — provider-agnostic catch for
+    # pasted bot/API/session tokens that do not have a stable prefix.
+    if "." in text:
+        text = _OPAQUE_DOT_TOKEN_RE.sub(lambda m: _mask_token(m.group(1)), text)
 
     # Private key blocks
     if "BEGIN" in text and "-----" in text:

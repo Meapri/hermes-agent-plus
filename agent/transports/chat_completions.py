@@ -75,6 +75,39 @@ def _build_gemini_thinking_config(model: str, reasoning_config: dict | None) -> 
     return thinking_config
 
 
+def _build_antigravity_thinking_config(model: str, reasoning_config: dict | None) -> dict | None:
+    """Translate Hermes reasoning config to Antigravity thinkingConfig.
+
+    Gemini uses thinkingLevel. Claude via Antigravity accepts the same request
+    field but expects a thinkingBudget-style budget that the adapter converts to
+    Claude's snake_case bridge shape.
+    """
+    normalized_model = (model or "").strip().lower()
+    if normalized_model.startswith("gemini"):
+        return _build_gemini_thinking_config(model, reasoning_config)
+    if "claude" not in normalized_model:
+        return None
+    if not isinstance(reasoning_config, dict):
+        return None
+    if reasoning_config.get("enabled") is False:
+        return {"includeThoughts": False}
+    effort = str(reasoning_config.get("effort", "medium") or "medium").strip().lower()
+    if effort == "none":
+        return {"includeThoughts": False}
+    budget_by_effort = {
+        "minimal": 2000,
+        "low": 4000,
+        "medium": 8000,
+        "high": 16000,
+        "xhigh": 32000,
+        "max": 32000,
+    }
+    return {
+        "includeThoughts": True,
+        "thinkingBudget": budget_by_effort.get(effort, 8000),
+    }
+
+
 def _snake_case_gemini_thinking_config(config: dict | None) -> dict | None:
     """Convert Gemini thinking config keys to the OpenAI-compat field names."""
     if not isinstance(config, dict) or not config:
@@ -126,7 +159,11 @@ class ChatCompletionsTransport(ProviderTransport):
         return "chat_completions"
 
     def convert_messages(
-        self, messages: list[dict[str, Any]], **kwargs
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        preserve_tool_name: bool = False,
+        **kwargs,
     ) -> list[dict[str, Any]]:
         """Messages are already in OpenAI format — strip internal fields
         that strict chat-completions providers reject with HTTP 400/422
@@ -171,7 +208,7 @@ class ChatCompletionsTransport(ProviderTransport):
             if (
                 "codex_reasoning_items" in msg
                 or "codex_message_items" in msg
-                or "tool_name" in msg
+                or ("tool_name" in msg and not preserve_tool_name)
             ):
                 needs_sanitize = True
                 break
@@ -200,7 +237,8 @@ class ChatCompletionsTransport(ProviderTransport):
                 continue
             msg.pop("codex_reasoning_items", None)
             msg.pop("codex_message_items", None)
-            msg.pop("tool_name", None)
+            if not preserve_tool_name:
+                msg.pop("tool_name", None)
             # Drop all Hermes-internal scaffolding markers (``_``-prefixed).
             # OpenAI's message schema has no ``_``-prefixed fields, so this
             # is safe and future-proofs against new markers being added.
@@ -272,9 +310,14 @@ class ChatCompletionsTransport(ProviderTransport):
             extra_body_additions: dict | None
         """
         # Codex sanitization: drop reasoning_items / call_id / response_item_id.
-        # Pass model so the Gemini thought_signature (extra_content) is kept for
-        # Gemini targets and stripped for strict non-Gemini providers.
-        sanitized = self.convert_messages(messages, model=model)
+        # Google Code Assist/Antigravity adapters need tool_name to reconstruct
+        # Gemini functionResponse.name from persisted Hermes tool messages.
+        provider_name = str(params.get("provider_name") or "").strip().lower()
+        sanitized = self.convert_messages(
+            messages,
+            model=model,
+            preserve_tool_name=provider_name in {"google-antigravity", "google-gemini-cli"},
+        )
 
         # ── Provider profile: single-path when present ──────────────────
         _profile = params.get("provider_profile")
@@ -437,6 +480,13 @@ class ChatCompletionsTransport(ProviderTransport):
                 extra_body["thinking_config"] = raw_thinking_config
         elif provider_name == "google-gemini-cli":
             thinking_config = _build_gemini_thinking_config(model, reasoning_config)
+            if thinking_config:
+                extra_body["thinking_config"] = thinking_config
+        elif provider_name == "google-antigravity":
+            session_id = params.get("session_id")
+            if session_id:
+                extra_body["session_id"] = session_id
+            thinking_config = _build_antigravity_thinking_config(model, reasoning_config)
             if thinking_config:
                 extra_body["thinking_config"] = thinking_config
 
