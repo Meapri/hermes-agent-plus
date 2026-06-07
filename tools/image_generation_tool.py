@@ -169,30 +169,6 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
         },
         "upscale": False,
     },
-    "google-antigravity/gemini-3-pro-image-preview": {
-        "display": "Gemini 3 Pro Image",
-        "speed": "~8s",
-        "strengths": "Gemini 3 Pro, reasoning depth, text rendering",
-        "price": "Free (Antigravity Code Assist)",
-        "size_style": "aspect_ratio",
-        "sizes": {
-            "landscape": "16:9",
-            "square": "1:1",
-            "portrait": "9:16",
-        },
-        "defaults": {
-            "num_images": 1,
-            "output_format": "png",
-            "safety_tolerance": "5",
-            "resolution": "1K",
-        },
-        "supports": {
-            "prompt", "aspect_ratio", "num_images", "output_format",
-            "safety_tolerance", "seed", "sync_mode", "resolution",
-            "enable_web_search", "limit_generations",
-        },
-        "upscale": False,
-    },
     "google-antigravity/gemini-3.1-flash-image": {
         "display": "Gemini 3.1 Flash Image",
         "speed": "~8s",
