@@ -12,6 +12,7 @@ import { useLocation } from 'react-router-dom'
 
 import { Thread } from '@/components/assistant-ui/thread'
 import { Backdrop } from '@/components/Backdrop'
+import { SubagentMonitor } from '@/components/chat/subagent-monitor'
 import { PromptOverlays } from '@/components/prompt-overlays'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -336,6 +337,10 @@ export function ChatView({
       />
 
       <PromptOverlays />
+
+      <div className="absolute top-12 right-4 z-20 w-80 max-w-[calc(100vw-2rem)]">
+        <SubagentMonitor />
+      </div>
 
       <div
         className="relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]"

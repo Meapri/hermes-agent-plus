@@ -26,7 +26,7 @@ SPAWN_SUBAGENT_SCHEMA = {
             },
             "role": {
                 "type": "string",
-                "enum": ["coder", "researcher", "leaf", "orchestrator"],
+                "enum": ["coder", "researcher", "leaf", "orchestrator", "web_scraper", "reviewer"],
                 "description": "Role determining the toolset and prompts. Default is 'leaf'."
             },
             "workspace_mode": {
@@ -64,9 +64,13 @@ def spawn_subagent(goal: str, role: str = "leaf", workspace_mode: str = "inherit
             
             toolsets = None
             if role == "coder":
-                toolsets = ["development"]
+                toolsets = ["terminal", "file", "code_execution"]
             elif role == "researcher":
-                toolsets = ["research"]
+                toolsets = ["web", "file"]
+            elif role == "web_scraper":
+                toolsets = ["browser", "web", "file"]
+            elif role == "reviewer":
+                toolsets = ["file", "terminal", "code_execution"]
                 
             child = _build_child_agent(
                 task_index=0,

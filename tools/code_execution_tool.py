@@ -1063,7 +1063,7 @@ def _execute_remote(
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def execute_code(
+def _execute_code_inner(
     code: str,
     task_id: Optional[str] = None,
     enabled_tools: Optional[List[str]] = None,
@@ -1829,3 +1829,86 @@ registry.register(
     emoji="🐍",
     max_result_size_chars=100_000,
 )
+
+def _self_heal_code(code: str, error: str, output: str) -> Optional[str]:
+    """Ask the auxiliary LLM to fix the failing code."""
+    try:
+        from agent.auxiliary_client import call_llm
+        prompt = f\"\"\"You are an expert Python developer. A script failed to execute.
+Your task is to fix the script so it executes successfully.
+
+Original Code:
+```python
+{code}
+```
+
+Standard Output / Error Output:
+{output}
+
+Execution Error:
+{error}
+
+Return ONLY the completely fixed Python script inside a single ```python code block.
+Do not provide any explanations.\"\"\"
+
+        response = call_llm(
+            task="code_execution",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        answer = response.choices[0].message.content or ""
+        
+        # Extract code block
+        if "```python" in answer:
+            answer = answer.split("```python")[1].split("```")[0].strip()
+        elif "```" in answer:
+            answer = answer.split("```")[1].split("```")[0].strip()
+        
+        return answer.strip()
+    except Exception as e:
+        logger.error("Self-healing failed: %s", e)
+        return None
+
+
+def execute_code(
+    code: str,
+    task_id: Optional[str] = None,
+    enabled_tools: Optional[List[str]] = None,
+) -> str:
+    """
+    Run a Python script in a sandboxed child process with RPC access
+    to a subset of Hermes tools. If it fails with exit_code != 0,
+    try to auto-fix up to 3 times using the auxiliary LLM.
+    """
+    original_code = code
+    max_retries = 3
+    
+    for attempt in range(max_retries + 1):
+        result_str = _execute_code_inner(code, task_id, enabled_tools)
+        
+        try:
+            result = json.loads(result_str)
+        except json.JSONDecodeError:
+            return result_str
+            
+        # Only self-heal if it's an error from the script exiting with a non-zero code.
+        # Don't try to self-heal if it was blocked by the guard or other infrastructure errors.
+        if result.get("status") == "error" and "Script exited with code" in str(result.get("error", "")):
+            if attempt < max_retries:
+                logger.info("execute_code failed. Attempting self-healing (attempt %d/%d)", attempt + 1, max_retries)
+                healed_code = _self_heal_code(code, result.get("error", ""), result.get("output", ""))
+                if healed_code:
+                    code = healed_code
+                    continue
+                else:
+                    break
+        
+        # If success, or max retries reached, or not an exit_code error, return.
+        if attempt > 0 and result.get("status") != "error":
+            logger.info("execute_code self-healing finished successfully.")
+            if isinstance(result, dict) and "output" in result:
+                result["output"] += f"\n\n[Note: Script was auto-fixed {attempt} time(s) by Hermes Self-Healing]"
+                result_str = json.dumps(result, ensure_ascii=False)
+        return result_str
+        
+    return _execute_code_inner(original_code, task_id, enabled_tools)

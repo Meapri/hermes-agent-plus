@@ -1146,6 +1146,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 "run_stop": {"method": "POST", "path": "/v1/runs/{run_id}/stop"},
                 "skills": {"method": "GET", "path": "/v1/skills"},
                 "toolsets": {"method": "GET", "path": "/v1/toolsets"},
+                "subagents": {"method": "GET", "path": "/api/subagents"},
                 "sessions": {"method": "GET", "path": "/api/sessions"},
                 "session_create": {"method": "POST", "path": "/api/sessions"},
                 "session": {"method": "GET", "path": "/api/sessions/{session_id}"},
@@ -1341,6 +1342,19 @@ class APIServerAdapter(BasePlatformAdapter):
             "limit": limit,
             "offset": offset,
             "has_more": len(sessions) == limit,
+        })
+
+    async def _handle_list_subagents(self, request: "web.Request") -> "web.Response":
+        """GET /api/subagents — list background subagents."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+        
+        from agent.async_subagents import list_jobs
+        jobs = list_jobs()
+        return web.json_response({
+            "object": "list",
+            "data": jobs,
         })
 
     async def _handle_create_session(self, request: "web.Request") -> "web.Response":
@@ -4109,6 +4123,7 @@ class APIServerAdapter(BasePlatformAdapter):
             self._app.router.add_get("/v1/skills", self._handle_skills)
             self._app.router.add_get("/v1/toolsets", self._handle_toolsets)
             # Session/client control surface (thin wrappers over SessionDB + _run_agent)
+            self._app.router.add_get("/api/subagents", self._handle_list_subagents)
             self._app.router.add_get("/api/sessions", self._handle_list_sessions)
             self._app.router.add_post("/api/sessions", self._handle_create_session)
             self._app.router.add_get("/api/sessions/{session_id}", self._handle_get_session)

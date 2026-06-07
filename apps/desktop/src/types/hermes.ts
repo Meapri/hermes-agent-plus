@@ -34,6 +34,17 @@ export interface ElevenLabsVoicesResponse {
   voices: ElevenLabsVoice[]
 }
 
+export interface SubagentJob {
+  status: string
+  start_time: number
+  workspace_dir?: string
+}
+
+export interface SubagentsResponse {
+  object: string
+  data: Record<string, SubagentJob>
+}
+
 export interface OAuthProviderStatus {
   error?: string
   expires_at?: null | string

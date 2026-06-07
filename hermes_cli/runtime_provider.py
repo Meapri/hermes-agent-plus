@@ -1459,6 +1459,7 @@ def resolve_runtime_provider(
 
     if provider == "google-antigravity":
         try:
+            from hermes_cli.auth import resolve_antigravity_oauth_runtime_credentials
             creds = resolve_antigravity_oauth_runtime_credentials()
             return {
                 "provider": "google-antigravity",

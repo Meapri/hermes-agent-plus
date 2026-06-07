@@ -36,6 +36,8 @@ import type {
   SessionSearchResponse,
   SkillInfo,
   StatusResponse,
+  SubagentJob,
+  SubagentsResponse,
   ToolsetConfig,
   ToolsetInfo
 } from '@/types/hermes'
@@ -96,6 +98,8 @@ export type {
   SkillInfo,
   StaleAuxAssignment,
   StatusResponse,
+  SubagentJob,
+  SubagentsResponse,
   ToolsetConfig,
   ToolsetInfo
 } from '@/types/hermes'
@@ -686,5 +690,11 @@ export function speakText(text: string): Promise<AudioSpeakResponse> {
 export function getElevenLabsVoices(): Promise<ElevenLabsVoicesResponse> {
   return window.hermesDesktop.api<ElevenLabsVoicesResponse>({
     path: '/api/audio/elevenlabs/voices'
+  })
+}
+
+export function getSubagents(): Promise<SubagentsResponse> {
+  return window.hermesDesktop.api<SubagentsResponse>({
+    path: '/api/subagents'
   })
 }

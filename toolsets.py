@@ -242,7 +242,7 @@ TOOLSETS = {
     
     "delegation": {
         "description": "Spawn subagents with isolated context for complex subtasks",
-        "tools": ["spawn_subagent", "manage_subagents", "send_message"],
+        "tools": ["spawn_subagent", "manage_subagents", "send_message", "store_team_memory", "retrieve_team_memory"],
         "includes": []
     },
 
@@ -358,7 +358,7 @@ TOOLSETS = {
             "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
             "todo", "memory",
             "session_search",
-            "execute_code", "spawn_subagent", "manage_subagents", "send_message",
+            "execute_code", "spawn_subagent", "manage_subagents", "send_message", "store_team_memory", "retrieve_team_memory",
         ],
         "includes": []
     },
@@ -386,7 +386,7 @@ TOOLSETS = {
             # Session history search
             "session_search",
             # Code execution + delegation
-            "execute_code", "spawn_subagent", "manage_subagents", "send_message",
+            "execute_code", "spawn_subagent", "manage_subagents", "send_message", "store_team_memory", "retrieve_team_memory",
             # Cronjob management
             "cronjob",
             # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)

@@ -353,7 +353,7 @@ def _normalize_role(r: Optional[str]) -> str:
     if r is None or not r:
         return "leaf"
     r_norm = str(r).strip().lower()
-    if r_norm in {"leaf", "orchestrator"}:
+    if r_norm in {"leaf", "orchestrator", "coder", "researcher", "web_scraper", "reviewer"}:
         return r_norm
     logger.warning("Unknown delegate_task role=%r, coercing to 'leaf'", r)
     return "leaf"
@@ -622,6 +622,15 @@ def _build_child_system_prompt(
         "",
         f"YOUR TASK:\n{goal}",
     ]
+    if role == "coder":
+        parts.append("Role Context: You are an expert software engineer. Focus on writing clean, robust code.")
+    elif role == "researcher":
+        parts.append("Role Context: You are a meticulous researcher. Focus on finding accurate information and summarizing it clearly.")
+    elif role == "web_scraper":
+        parts.append("Role Context: You are a data extraction specialist. Focus on browsing web pages and extracting structured information.")
+    elif role == "reviewer":
+        parts.append("Role Context: You are a senior code reviewer. Focus on finding bugs, security issues, and suggesting improvements.")
+
     if context and context.strip():
         parts.append(f"\nCONTEXT:\n{context}")
     if workspace_path and str(workspace_path).strip():
@@ -944,7 +953,10 @@ def _build_child_agent(
     child_depth = getattr(parent_agent, "_delegate_depth", 0) + 1
     max_spawn = _get_max_spawn_depth()
     orchestrator_ok = _get_orchestrator_enabled() and child_depth < max_spawn
-    effective_role = role if (role == "orchestrator" and orchestrator_ok) else "leaf"
+    if role == "orchestrator" and not orchestrator_ok:
+        effective_role = "leaf"
+    else:
+        effective_role = role
 
     # ── Subagent identity (stable across events, 0-indexed for TUI) ─────
     # subagent_id is generated here so the progress callback, the
@@ -987,12 +999,24 @@ def _build_child_agent(
                 child_toolsets, parent_toolsets
             )
         child_toolsets = _strip_blocked_tools(child_toolsets)
-    elif parent_agent and parent_enabled is not None:
-        child_toolsets = _strip_blocked_tools(parent_enabled)
-    elif parent_toolsets:
-        child_toolsets = _strip_blocked_tools(sorted(parent_toolsets))
     else:
-        child_toolsets = _strip_blocked_tools(DEFAULT_TOOLSETS)
+        # If no explicit toolsets are passed, configure based on role
+        if effective_role == "coder":
+            candidate_toolsets = ["terminal", "file", "code_execution"]
+        elif effective_role == "researcher":
+            candidate_toolsets = ["web", "search", "file"]
+        elif effective_role == "web_scraper":
+            candidate_toolsets = ["browser", "web", "file"]
+        elif effective_role == "reviewer":
+            candidate_toolsets = ["file", "terminal", "code_execution"]
+        else:
+            if parent_agent and parent_enabled is not None:
+                candidate_toolsets = parent_enabled
+            elif parent_toolsets:
+                candidate_toolsets = sorted(parent_toolsets)
+            else:
+                candidate_toolsets = DEFAULT_TOOLSETS
+        child_toolsets = _strip_blocked_tools(candidate_toolsets)
 
     # Orchestrators retain the 'delegation' toolset that _strip_blocked_tools
     # removed.  The re-add is unconditional on parent-toolset membership because
@@ -2792,7 +2816,7 @@ DELEGATE_TASK_SCHEMA = {
                         },
                         "role": {
                             "type": "string",
-                            "enum": ["leaf", "orchestrator"],
+                            "enum": ["leaf", "orchestrator", "coder", "researcher", "web_scraper", "reviewer"],
                             "description": "Per-task role override. See top-level 'role' for semantics.",
                         },
                     },
@@ -2805,7 +2829,7 @@ DELEGATE_TASK_SCHEMA = {
             },
             "role": {
                 "type": "string",
-                "enum": ["leaf", "orchestrator"],
+                "enum": ["leaf", "orchestrator", "coder", "researcher", "web_scraper", "reviewer"],
                 "description": "(rebuilt at get_definitions() time)",
             },
             "acp_command": {
