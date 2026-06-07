@@ -50,7 +50,7 @@ const AUX_TASKS: readonly AuxTaskMeta[] = [
 const NO_PROVIDERS: readonly ModelOptionProvider[] = [{ name: '—', slug: '', models: [] }]
 
 const IMAGE_PROVIDERS: ModelOptionProvider[] = [
-  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['nano-banana-pro'] },
+  { name: 'Google Antigravity', slug: 'google-antigravity', models: ['nano-banana-pro', 'nano-banana-pro-2'] },
   { name: 'FAL.ai', slug: 'fal-ai', models: ['flux-2-pro', 'flux-2/klein/9b', 'z-image/turbo', 'gpt-image-1.5'] }
 ]
 

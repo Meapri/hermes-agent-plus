@@ -193,6 +193,30 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
         },
         "upscale": False,
     },
+    "fal-ai/nano-banana-pro-2": {
+        "display": "Nano Banana Pro 2 (Gemini 3.1 Pro Image)",
+        "speed": "~8s",
+        "strengths": "Gemini 3.1 Pro, reasoning depth, text rendering",
+        "price": "Free (Antigravity Code Assist)",
+        "size_style": "aspect_ratio",
+        "sizes": {
+            "landscape": "16:9",
+            "square": "1:1",
+            "portrait": "9:16",
+        },
+        "defaults": {
+            "num_images": 1,
+            "output_format": "png",
+            "safety_tolerance": "5",
+            "resolution": "1K",
+        },
+        "supports": {
+            "prompt", "aspect_ratio", "num_images", "output_format",
+            "safety_tolerance", "seed", "sync_mode", "resolution",
+            "enable_web_search", "limit_generations",
+        },
+        "upscale": False,
+    },
     "fal-ai/gpt-image-1.5": {
         "display": "GPT Image 1.5",
         "speed": "~15s",
@@ -741,7 +765,7 @@ def image_generate_tool(
     model_id, meta = _resolve_fal_model()
 
     # NATIVE INTEGRATION: Intercept Nano Banana legacy requests and route to native Antigravity provider
-    if model_id == "fal-ai/nano-banana-pro":
+    if model_id in ("fal-ai/nano-banana-pro", "fal-ai/nano-banana-pro-2"):
         try:
             from hermes_cli.plugins import _ensure_plugins_discovered
             from agent.image_gen_registry import get_provider
