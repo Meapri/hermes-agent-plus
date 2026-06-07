@@ -15,6 +15,7 @@ import os
 import tempfile
 import html as _html
 import re
+from agent.i18n import t
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Any
 
@@ -3018,7 +3019,7 @@ class TelegramAdapter(BasePlatformAdapter):
         """Handle model picker inline keyboard callbacks (mp:/mm:/mb:/mx:/mg:)."""
         state = self._model_picker_state.get(chat_id)
         if not state:
-            await query.answer(text="Picker expired — use /model again.")
+            await query.answer(text=t("gateway.telegram.picker_expired_long"))
             return
 
         try:
@@ -3035,7 +3036,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 None,
             )
             if not provider:
-                await query.answer(text="Provider not found.")
+                await query.answer(text=t("gateway.telegram.provider_not_found"))
                 return
 
             models = provider.get("models", [])
@@ -3069,7 +3070,7 @@ class TelegramAdapter(BasePlatformAdapter):
             try:
                 page = int(data[3:])
             except ValueError:
-                await query.answer(text="Invalid page.")
+                await query.answer(text=t("gateway.telegram.invalid_page"))
                 return
 
             models = state.get("model_list", [])
@@ -3105,12 +3106,12 @@ class TelegramAdapter(BasePlatformAdapter):
             try:
                 idx = int(data[3:])
             except ValueError:
-                await query.answer(text="Invalid selection.")
+                await query.answer(text=t("gateway.telegram.invalid_selection"))
                 return
 
             model_list = state.get("model_list", [])
             if idx < 0 or idx >= len(model_list):
-                await query.answer(text="Invalid model index.")
+                await query.answer(text=t("gateway.telegram.invalid_model_index"))
                 return
 
             model_id = model_list[idx]
@@ -3118,7 +3119,7 @@ class TelegramAdapter(BasePlatformAdapter):
             callback = state.get("on_model_selected")
 
             if not callback:
-                await query.answer(text="Picker expired.")
+                await query.answer(text=t("gateway.telegram.picker_expired"))
                 return
 
             try:
@@ -3144,7 +3145,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     )
                 except Exception:
                     pass
-            await query.answer(text="Model switched!")
+            await query.answer(text=t("gateway.telegram.model_switched"))
 
             # Clean up state
             self._model_picker_state.pop(chat_id, None)
@@ -3161,7 +3162,7 @@ class TelegramAdapter(BasePlatformAdapter):
             by_slug = {p["slug"]: p for p in state["providers"]}
             members = [by_slug[m] for m in member_slugs if m in by_slug]
             if not members:
-                await query.answer(text="Group not found.")
+                await query.answer(text=t("gateway.telegram.group_not_found"))
                 return
 
             buttons = []
@@ -3220,7 +3221,7 @@ class TelegramAdapter(BasePlatformAdapter):
             # --- Cancel ---
             self._model_picker_state.pop(chat_id, None)
             await query.edit_message_text(
-                text="Model selection cancelled.",
+                text=t("gateway.telegram.model_selection_cancelled"),
                 reply_markup=None,
             )
             await query.answer()
@@ -3271,7 +3272,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 try:
                     approval_id = int(parts[2])
                 except (ValueError, IndexError):
-                    await query.answer(text="Invalid approval data.")
+                    await query.answer(text=t("gateway.telegram.invalid_approval_data"))
                     return
 
                 # Only authorized users may click approval buttons.
@@ -3283,12 +3284,12 @@ class TelegramAdapter(BasePlatformAdapter):
                     thread_id=str(query_thread_id) if query_thread_id is not None else None,
                     user_name=query_user_name,
                 ):
-                    await query.answer(text="⛔ You are not authorized to approve commands.")
+                    await query.answer(text=t("gateway.telegram.unauthorized_approve"))
                     return
 
                 session_key = self._approval_state.pop(approval_id, None)
                 if not session_key:
-                    await query.answer(text="This approval has already been resolved.")
+                    await query.answer(text=t("gateway.telegram.approval_resolved"))
                     return
 
                 # Map choice to human-readable label
@@ -3349,12 +3350,12 @@ class TelegramAdapter(BasePlatformAdapter):
                     thread_id=str(query_thread_id) if query_thread_id is not None else None,
                     user_name=query_user_name,
                 ):
-                    await query.answer(text="⛔ You are not authorized to answer this prompt.")
+                    await query.answer(text=t("gateway.telegram.unauthorized_answer"))
                     return
 
                 session_key = self._slash_confirm_state.pop(confirm_id, None)
                 if not session_key:
-                    await query.answer(text="This prompt has already been resolved.")
+                    await query.answer(text=t("gateway.telegram.prompt_resolved"))
                     return
 
                 label_map = {
@@ -3449,12 +3450,12 @@ class TelegramAdapter(BasePlatformAdapter):
                     thread_id=str(query_thread_id) if query_thread_id is not None else None,
                     user_name=query_user_name,
                 ):
-                    await query.answer(text="⛔ You are not authorized to answer this prompt.")
+                    await query.answer(text=t("gateway.telegram.unauthorized_answer"))
                     return
 
                 session_key = self._clarify_state.get(clarify_id)
                 if not session_key:
-                    await query.answer(text="This prompt has already been resolved.")
+                    await query.answer(text=t("gateway.telegram.prompt_resolved"))
                     return
 
                 user_display = getattr(query.from_user, "first_name", "User")
@@ -3472,7 +3473,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     except Exception as exc:
                         logger.warning("[%s] mark_awaiting_text failed: %s", self.name, exc)
 
-                    await query.answer(text="✏️ Type your answer in the chat.")
+                    await query.answer(text=t("gateway.telegram.type_answer"))
                     try:
                         await query.edit_message_text(
                             text=f"❓ {query.message.text or ''}\n\n<i>Awaiting typed response from {_html.escape(user_display)}…</i>",
@@ -3487,7 +3488,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 try:
                     idx = int(choice_token)
                 except (ValueError, TypeError):
-                    await query.answer(text="Invalid choice.")
+                    await query.answer(text=t("gateway.telegram.invalid_choice"))
                     return
 
                 # Look up the choice text from the entry registered in the
@@ -3551,7 +3552,7 @@ class TelegramAdapter(BasePlatformAdapter):
             thread_id=str(query_thread_id) if query_thread_id is not None else None,
             user_name=query_user_name,
         ):
-            await query.answer(text="⛔ You are not authorized to answer update prompts.")
+            await query.answer(text=t("gateway.telegram.unauthorized_update"))
             return
         await query.answer(text=f"Sent '{answer}' to the update process.")
         # Edit the message to show the choice and remove buttons
@@ -3610,7 +3611,7 @@ class TelegramAdapter(BasePlatformAdapter):
         """Dispatch a gmail-triage inline-button callback (gt:verb:arg)."""
         parts = data.split(":", 2)
         if len(parts) != 3:
-            await query.answer(text="Invalid gmail-triage data.")
+            await query.answer(text=t("gateway.telegram.invalid_gmail_data"))
             return
         verb, arg = parts[1], parts[2]
 
@@ -3622,7 +3623,7 @@ class TelegramAdapter(BasePlatformAdapter):
             thread_id=str(query_thread_id) if query_thread_id is not None else None,
             user_name=query_user_name,
         ):
-            await query.answer(text="⛔ You are not authorized to act on this email.")
+            await query.answer(text=t("gateway.telegram.unauthorized_email"))
             return
 
         entry = self._GT_VERB_DISPATCH.get(verb)
