@@ -54,6 +54,15 @@ const IMAGE_PROVIDERS: ModelOptionProvider[] = [
   { name: 'FAL.ai', slug: 'fal-ai', models: ['flux-2-pro', 'flux-2/klein/9b', 'z-image/turbo', 'gpt-image-1.5'] }
 ]
 
+const IMAGE_MODEL_NAMES: Record<string, string> = {
+  'nano-banana-pro': 'Nano Banana Pro (Gemini 3 Pro Image)',
+  'nano-banana-pro-2': 'Nano Banana Pro 2 (Gemini 3.1 Pro Image)',
+  'flux-2-pro': 'Flux 2 Pro',
+  'flux-2/klein/9b': 'Flux 2 Klein 9B',
+  'z-image/turbo': 'Z-Image Turbo',
+  'gpt-image-1.5': 'GPT Image 1.5'
+}
+
 interface StaleAuxWarningProps {
   applying: boolean
   onReset: () => void
@@ -528,7 +537,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                         <SelectContent>
                           {(activeProviderModels.length ? activeProviderModels : []).map(model => (
                             <SelectItem key={model} value={model}>
-                              {model}
+                              {isImageGen ? IMAGE_MODEL_NAMES[model] || model : model}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -550,7 +559,7 @@ export function ModelSettings({ onMainModelChanged }: ModelSettingsProps) {
                   <span className="font-mono text-[0.68rem]">
                     {isAuto
                       ? m.autoUseMain
-                      : `${current.provider} · ${current.model || m.providerDefault}`}
+                      : `${current.provider} · ${isImageGen ? IMAGE_MODEL_NAMES[current.model || ''] || current.model : current.model || m.providerDefault}`}
                   </span>
                 }
                 key={meta.key}
