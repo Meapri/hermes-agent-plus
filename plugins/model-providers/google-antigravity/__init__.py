@@ -27,16 +27,19 @@ class GoogleAntigravityProfile(ProviderProfile):
         extra: dict[str, Any] = {}
         if session_id:
             extra["session_id"] = session_id
+
+        # Antigravity's runtime client consumes the same top-level
+        # ``thinking_config`` shape as Cloud Code Assist.  Keep this logic in
+        # the provider profile path because registered providers bypass the
+        # legacy ``provider_name == \"google-antigravity\"`` branch in the
+        # chat-completions transport.
+        from agent.transports.chat_completions import _build_antigravity_thinking_config
+
         model = str(context.get("model") or "")
-        normalized = model.strip().lower()
-        vendor, sep, bare = normalized.partition("/")
-        if sep and vendor in {"google", "gemini"}:
-            normalized = bare.strip() or normalized
-        if normalized.startswith("gemini-") and "pro" in normalized:
-            if normalized.endswith("-high"):
-                extra["thinking_config"] = {"thinkingLevel": "high"}
-            if normalized.endswith("-low"):
-                extra["thinking_config"] = {"thinkingLevel": "low"}
+        reasoning_config = context.get("reasoning_config")
+        thinking_config = _build_antigravity_thinking_config(model, reasoning_config)
+        if thinking_config:
+            extra["thinking_config"] = thinking_config
         return extra
 
 

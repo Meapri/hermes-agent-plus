@@ -127,6 +127,7 @@ CLAUDE_INTERLEAVED_THINKING_HINT = (
 )
 GEMINI_31_PRO_MIN_OUTPUT_TOKENS = 256
 ANTIGRAVITY_REASONING_MIN_OUTPUT_TOKENS = 256
+ANTIGRAVITY_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS = 65_535
 ANTIGRAVITY_SYSTEM_INSTRUCTION = (
     "Use absolute file paths for filesystem tool arguments."
 )
@@ -1056,116 +1057,6 @@ def _minimal_invalid_argument_retry_body(
     return retry_wrapped
 
 
-def _minimal_invalid_argument_retry_body(
-    wrapped: Dict[str, Any],
-    *,
-    preserve_request_metadata: bool = True,
-) -> Optional[Dict[str, Any]]:
-    """Build a retry body for opaque Code Assist 400s.
-
-    Uses a graduated trim strategy instead of dropping everything:
-
-    1. preserve_request_metadata=True (first retry):
-       Keep systemInstruction, generationConfig, sessionId.
-       Keep the last N content turns (recent context) instead of just the
-       last user message.  Strip tool-result parts that contain very large
-       text payloads (>2000 chars) — these are the most common 400 trigger.
-    2. preserve_request_metadata=False (ultra retry):
-       Keep only the last user message (original minimal behavior).
-    """
-    if not isinstance(wrapped, dict):
-        return None
-    request = wrapped.get("request")
-    if not isinstance(request, dict):
-        return None
-
-    contents = request.get("contents")
-    if not isinstance(contents, list):
-        return None
-
-    if not preserve_request_metadata:
-        # Ultra-minimal: last user text plus the durable Hermes system prompt.
-        # Keeping generationConfig/sessionId/tools out avoids the common
-        # INVALID_ARGUMENT triggers, but dropping systemInstruction makes the
-        # model answer as a fresh generic Gemini persona.
-        last_text = ""
-        for turn in reversed(contents):
-            if not isinstance(turn, dict):
-                continue
-            parts = turn.get("parts")
-            if not isinstance(parts, list):
-                continue
-            for part in reversed(parts):
-                if isinstance(part, dict) and isinstance(part.get("text"), str) and part["text"].strip():
-                    last_text = part["text"]
-                    break
-            if last_text:
-                break
-        if not last_text:
-            last_text = "Continue from the previous user request. Prior tool transcript was omitted because the provider rejected it."
-        retry_request: Dict[str, Any] = {
-            "contents": [{"role": "user", "parts": [{"text": last_text}]}],
-        }
-        system_instruction = request.get("systemInstruction")
-        if isinstance(system_instruction, dict):
-            retry_request["systemInstruction"] = system_instruction
-        elif isinstance(system_instruction, str) and system_instruction.strip():
-            retry_request["systemInstruction"] = {"parts": [{"text": system_instruction}]}
-        retry_wrapped = dict(wrapped)
-        retry_wrapped["request"] = retry_request
-        retry_wrapped["requestId"] = "agent-" + str(uuid.uuid4())
-        return retry_wrapped
-
-    # Graduated trim: keep recent turns, truncate large tool results, and
-    # drop tools. Opaque 400 INVALID_ARGUMENT responses most often come from
-    # transcript/tool-schema edge cases; the next retry is a recovery turn,
-    # so it is better to get a plain answer than to resend the same schema.
-    _LARGE_PART_THRESHOLD = 2000  # chars
-    _KEEP_RECENT_TURNS = 12  # keep last N turns
-
-    trimmed_contents = list(contents)
-
-    # Step 1: Truncate oversized text parts in tool results
-    for turn in trimmed_contents:
-        if not isinstance(turn, dict):
-            continue
-        role = turn.get("role", "")
-        parts = turn.get("parts")
-        if not isinstance(parts, list):
-            continue
-        for part in parts:
-            if not isinstance(part, dict):
-                continue
-            text = part.get("text")
-            if isinstance(text, str) and len(text) > _LARGE_PART_THRESHOLD:
-                # For model/tool turns, truncate aggressively
-                if role in ("model", "tool", "function"):
-                    part["text"] = text[:_LARGE_PART_THRESHOLD] + "\n... [truncated for context limit]"
-                # For user turns, truncate less aggressively
-                elif role == "user" and len(text) > _LARGE_PART_THRESHOLD * 3:
-                    part["text"] = text[:_LARGE_PART_THRESHOLD * 3] + "\n... [truncated]"
-
-    # Step 2: If still too many turns, keep only recent ones
-    if len(trimmed_contents) > _KEEP_RECENT_TURNS:
-        trimmed_contents = trimmed_contents[-_KEEP_RECENT_TURNS:]
-        # Ensure first turn is user role (API requirement)
-        if trimmed_contents and isinstance(trimmed_contents[0], dict) and trimmed_contents[0].get("role") != "user":
-            trimmed_contents.insert(0, {
-                "role": "user",
-                "parts": [{"text": "(Earlier conversation context was trimmed. Continue from here.)"}],
-            })
-
-    retry_request = dict(request)
-    retry_request["contents"] = trimmed_contents
-    retry_request.pop("contextWindowCompression", None)
-    retry_request.pop("tools", None)
-    retry_request.pop("toolConfig", None)
-    retry_wrapped = dict(wrapped)
-    retry_wrapped["request"] = retry_request
-    retry_wrapped["requestId"] = "agent-" + str(uuid.uuid4())
-    return retry_wrapped
-
-
 def _antigravity_model_candidates(model: str) -> List[str]:
     """Return backend model IDs to try for an Antigravity UI/catalog model.
 
@@ -1249,6 +1140,8 @@ def _antigravity_effective_max_tokens(model: str, max_tokens: Optional[int]) -> 
 
     normalized = _normalize_antigravity_model_label(model).lower()
     if max_tokens is None:
+        if normalized.startswith("gemini-3"):
+            return ANTIGRAVITY_GEMINI_DEFAULT_MAX_OUTPUT_TOKENS
         return max_tokens
     if (
         normalized.startswith("gemini-3")
@@ -1531,6 +1424,52 @@ class GoogleAntigravityClient(GeminiCloudCodeClient):
                             )
                             continue
                         break
+                    if (
+                        response is not None
+                        and response.status_code == 400
+                        and isinstance(last_error, CodeAssistError)
+                        and str(getattr(last_error, "details", {}).get("status", "")).upper() == "INVALID_ARGUMENT"
+                    ):
+                        retry_body = _minimal_invalid_argument_retry_body(wrapped)
+                        if retry_body is not None:
+                            retry_response = self._http.post(url, json=retry_body, headers=headers)
+                            if retry_response.status_code == 200:
+                                try:
+                                    payload = retry_response.json()
+                                except ValueError as exc:
+                                    raise CodeAssistError(
+                                        f"Invalid JSON from Antigravity Code Assist retry: {exc}",
+                                        code="antigravity_invalid_json",
+                                    ) from exc
+                                return _sanitize_gpt_oss_response(
+                                    _translate_gemini_response(payload, model=model),
+                                    model,
+                                )
+                            last_error = _gemini_http_error(retry_response)
+                            if (
+                                retry_response.status_code == 400
+                                and isinstance(last_error, CodeAssistError)
+                                and str(getattr(last_error, "details", {}).get("status", "")).upper() == "INVALID_ARGUMENT"
+                            ):
+                                ultra_retry_body = _minimal_invalid_argument_retry_body(
+                                    wrapped,
+                                    preserve_request_metadata=False,
+                                )
+                                if ultra_retry_body is not None:
+                                    ultra_retry_response = self._http.post(url, json=ultra_retry_body, headers=headers)
+                                    if ultra_retry_response.status_code == 200:
+                                        try:
+                                            payload = ultra_retry_response.json()
+                                        except ValueError as exc:
+                                            raise CodeAssistError(
+                                                f"Invalid JSON from Antigravity Code Assist retry: {exc}",
+                                                code="antigravity_invalid_json",
+                                            ) from exc
+                                        return _sanitize_gpt_oss_response(
+                                            _translate_gemini_response(payload, model=model),
+                                            model,
+                                        )
+                                    last_error = _gemini_http_error(ultra_retry_response)
                     if response is not None and response.status_code == 403 and _is_endpoint_service_disabled(response):
                         continue
                     if response is not None and response.status_code not in retry_statuses:

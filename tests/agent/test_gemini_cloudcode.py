@@ -1221,6 +1221,145 @@ class TestGeminiHttpErrorParsing:
         assert classified.reason == FailoverReason.rate_limit
 
 
+class TestGoogleAntigravityHarness:
+    @staticmethod
+    def _invalid_argument_response():
+        class Resp:
+            status_code = 400
+            headers = {}
+            text = json.dumps({
+                "error": {
+                    "code": 400,
+                    "message": "opaque invalid argument",
+                    "status": "INVALID_ARGUMENT",
+                }
+            })
+
+            def json(self):
+                return json.loads(self.text)
+
+        return Resp()
+
+    @staticmethod
+    def _ok_response(text="ok"):
+        payload = json.dumps({
+            "response": {
+                "candidates": [{
+                    "content": {"parts": [{"text": text}]},
+                    "finishReason": "STOP",
+                }]
+            }
+        })
+
+        class Resp:
+            status_code = 200
+            headers = {}
+            text = payload
+
+            def json(self):
+                return json.loads(self.text)
+
+        return Resp()
+
+    def test_35_flash_none_max_tokens_sets_large_output_budget(self, monkeypatch):
+        from agent.google_antigravity_adapter import GoogleAntigravityClient, ProjectContext
+        from agent import google_antigravity_oauth
+
+        recorded = []
+
+        class FakeHTTP:
+            def post(self, url, json=None, headers=None):
+                recorded.append(json)
+                return TestGoogleAntigravityHarness._ok_response()
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(google_antigravity_oauth, "get_valid_access_token", lambda: "tok")
+        monkeypatch.setattr(
+            GoogleAntigravityClient,
+            "_ensure_project_context",
+            lambda self, access_token, model: ProjectContext(project_id="proj"),
+        )
+        monkeypatch.setattr("agent.google_antigravity_adapter.get_antigravity_headers", lambda refresh_version=False: {})
+
+        client = GoogleAntigravityClient(api_key="dummy")
+        client._http = FakeHTTP()
+        result = client.chat.completions.create(
+            model="gemini-3.5-flash",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=None,
+        )
+
+        generation_config = recorded[0]["request"]["generationConfig"]
+        assert generation_config["maxOutputTokens"] >= 32768
+        assert result.choices[0].message.content == "ok"
+
+    def test_non_stream_invalid_argument_retries_with_minimal_transcript(self, monkeypatch):
+        from agent.google_antigravity_adapter import GoogleAntigravityClient, ProjectContext
+        from agent import google_antigravity_oauth
+
+        posted = []
+
+        class FakeHTTP:
+            def post(self, url, json=None, headers=None):
+                posted.append(json)
+                if len(posted) == 1:
+                    return TestGoogleAntigravityHarness._invalid_argument_response()
+                return TestGoogleAntigravityHarness._ok_response("recovered")
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(google_antigravity_oauth, "get_valid_access_token", lambda: "tok")
+        monkeypatch.setattr(
+            GoogleAntigravityClient,
+            "_ensure_project_context",
+            lambda self, access_token, model: ProjectContext(project_id="proj"),
+        )
+        monkeypatch.setattr("agent.google_antigravity_adapter.get_antigravity_headers", lambda refresh_version=False: {})
+
+        client = GoogleAntigravityClient(api_key="dummy")
+        client._http = FakeHTTP()
+        response = client.chat.completions.create(
+            model="gemini-3.5-flash",
+            messages=[
+                {"role": "user", "content": "use the tool"},
+                {"role": "assistant", "tool_calls": [{
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": "{}"},
+                }]},
+                {"role": "tool", "name": "lookup", "tool_call_id": "call_1", "content": "x" * 3000},
+            ],
+            tools=[{"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}],
+            tool_choice="auto",
+        )
+
+        assert len(posted) == 2
+        retry_request = posted[1]["request"]
+        assert "tools" not in retry_request
+        assert "toolConfig" not in retry_request
+        assert response.choices[0].message.content == "recovered"
+
+    def test_tool_call_translation_preserves_id_and_google_thought_signature(self):
+        from agent.gemini_cloudcode_adapter import build_gemini_request
+
+        req = build_gemini_request(messages=[
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "tool_calls": [{
+                "id": "call_search",
+                "type": "function",
+                "extra_content": {"google": {"thought_signature": "SIG_123"}},
+                "function": {"name": "session_search", "arguments": "{}"},
+            }]},
+        ])
+
+        fc_part = next(p for p in req["contents"][-1]["parts"] if "functionCall" in p)
+        assert fc_part["functionCall"]["id"] == "call_search"
+        assert fc_part["thoughtSignature"] == "SIG_123"
+
+
 # =============================================================================
 # Provider registration
 # =============================================================================

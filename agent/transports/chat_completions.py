@@ -83,7 +83,19 @@ def _build_antigravity_thinking_config(model: str, reasoning_config: dict | None
     Claude's snake_case bridge shape.
     """
     normalized_model = (model or "").strip().lower()
+    vendor, sep, bare = normalized_model.partition("/")
+    if sep and vendor in {"google", "gemini"}:
+        normalized_model = bare.strip() or normalized_model
+
     if normalized_model.startswith("gemini"):
+        # Antigravity exposes UI-tier model aliases (e.g.
+        # ``gemini-3.5-flash-high``) where the reasoning level is encoded in
+        # the model ID itself.  Preserve that explicit operator choice even
+        # when Hermes has no separate reasoning_config for the turn.
+        if normalized_model.endswith("-high"):
+            return {"includeThoughts": True, "thinkingLevel": "high"}
+        if normalized_model.endswith("-low"):
+            return {"includeThoughts": True, "thinkingLevel": "low"}
         return _build_gemini_thinking_config(model, reasoning_config)
     if "claude" not in normalized_model:
         return None
