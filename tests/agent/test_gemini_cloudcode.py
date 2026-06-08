@@ -1342,6 +1342,74 @@ class TestGoogleAntigravityHarness:
         assert "toolConfig" not in retry_request
         assert response.choices[0].message.content == "recovered"
 
+    def test_35_flash_tools_default_to_validated_function_calling_mode(self, monkeypatch):
+        from agent.google_antigravity_adapter import GoogleAntigravityClient, ProjectContext
+        from agent import google_antigravity_oauth
+
+        recorded = []
+
+        class FakeHTTP:
+            def post(self, url, json=None, headers=None):
+                recorded.append(json)
+                return TestGoogleAntigravityHarness._ok_response()
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(google_antigravity_oauth, "get_valid_access_token", lambda: "tok")
+        monkeypatch.setattr(
+            GoogleAntigravityClient,
+            "_ensure_project_context",
+            lambda self, access_token, model: ProjectContext(project_id="proj"),
+        )
+        monkeypatch.setattr("agent.google_antigravity_adapter.get_antigravity_headers", lambda refresh_version=False: {})
+
+        client = GoogleAntigravityClient(api_key="dummy")
+        client._http = FakeHTTP()
+        client.chat.completions.create(
+            model="gemini-3.5-flash",
+            messages=[{"role": "user", "content": "maybe use lookup"}],
+            tools=[{"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}],
+            tool_choice="auto",
+        )
+
+        function_calling_config = recorded[0]["request"]["toolConfig"]["functionCallingConfig"]
+        assert function_calling_config["mode"] == "VALIDATED"
+
+    def test_35_flash_validated_mode_preserves_required_tool_choice(self, monkeypatch):
+        from agent.google_antigravity_adapter import GoogleAntigravityClient, ProjectContext
+        from agent import google_antigravity_oauth
+
+        recorded = []
+
+        class FakeHTTP:
+            def post(self, url, json=None, headers=None):
+                recorded.append(json)
+                return TestGoogleAntigravityHarness._ok_response()
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr(google_antigravity_oauth, "get_valid_access_token", lambda: "tok")
+        monkeypatch.setattr(
+            GoogleAntigravityClient,
+            "_ensure_project_context",
+            lambda self, access_token, model: ProjectContext(project_id="proj"),
+        )
+        monkeypatch.setattr("agent.google_antigravity_adapter.get_antigravity_headers", lambda refresh_version=False: {})
+
+        client = GoogleAntigravityClient(api_key="dummy")
+        client._http = FakeHTTP()
+        client.chat.completions.create(
+            model="gemini-3.5-flash",
+            messages=[{"role": "user", "content": "must use lookup"}],
+            tools=[{"type": "function", "function": {"name": "lookup", "parameters": {"type": "object"}}}],
+            tool_choice="required",
+        )
+
+        function_calling_config = recorded[0]["request"]["toolConfig"]["functionCallingConfig"]
+        assert function_calling_config["mode"] == "ANY"
+
     def test_tool_call_translation_preserves_id_and_google_thought_signature(self):
         from agent.gemini_cloudcode_adapter import build_gemini_request
 

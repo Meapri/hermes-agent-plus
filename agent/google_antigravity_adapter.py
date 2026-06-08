@@ -408,11 +408,16 @@ def _normalize_claude_tools(request: Dict[str, Any]) -> None:
     request["tools"] = ([{"functionDeclarations": declarations}] if declarations else []) + passthrough
 
 def _ensure_validated_tool_config(request: Dict[str, Any]) -> None:
+    tools = request.get("tools")
+    if not isinstance(tools, list) or not tools:
+        return
     tool_config = request.setdefault("toolConfig", {})
     if isinstance(tool_config, dict):
         fcc = tool_config.setdefault("functionCallingConfig", {})
         if isinstance(fcc, dict):
-            fcc["mode"] = "VALIDATED"
+            mode = str(fcc.get("mode") or "").strip().upper()
+            if mode in {"", "AUTO"}:
+                fcc["mode"] = "VALIDATED"
 
 def _ensure_claude_tool_call_ids(request: Dict[str, Any]) -> None:
     """Add Gemini function-call IDs required by Antigravity's Claude bridge.
@@ -706,6 +711,8 @@ def _apply_antigravity_request_transforms(request: Dict[str, Any], *, model: str
         extra_body.pop("cachedContent", None)
         if not extra_body:
             request.pop("extra_body", None)
+    if _is_gemini_model(model):
+        _ensure_validated_tool_config(request)
     if _is_claude_model(model):
         _ensure_validated_tool_config(request)
         _ensure_claude_tool_call_ids(request)
