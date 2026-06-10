@@ -132,11 +132,24 @@ ANTIGRAVITY_SYSTEM_INSTRUCTION = (
     "Use absolute file paths for filesystem tool arguments."
 )
 ANTIGRAVITY_GOOGLE_GROUNDING_HINT = (
-    "Google Search grounding is enabled for this request. Use grounded search "
-    "results for current facts, separate verified facts from inference, and "
-    "include source URLs when they materially help verification. Prefer this "
-    "native grounding path over external web or DuckDuckGo search tools; do "
-    "not request a separate web-search tool for the same facts."
+    "Google Search grounding is enabled for this request. "
+    "CRITICAL: Do NOT trust your training knowledge for any fact that can "
+    "change over time — a person's CURRENT role/title/office (president, CEO, "
+    "minister, champion), current events, prices, product specs, release "
+    "status, 'who is X now', dates, standings, or anything that may have "
+    "changed after your training cutoff. For these you MUST actually run a "
+    "google_search before answering; never assert such a fact from memory, "
+    "because your training data may be stale (people change office, products "
+    "launch, situations evolve). If a search returns newer information that "
+    "contradicts what you 'remember', the search wins. "
+    "Conversely, do NOT waste a search on purely emotional, casual, or "
+    "opinion chit-chat that has no factual claim to verify — answer those "
+    "directly. "
+    "When you do search: use grounded results for current facts, separate "
+    "verified facts from inference, and include source URLs when they "
+    "materially help verification. Prefer this native grounding path over "
+    "external web or DuckDuckGo search tools; do not request a separate "
+    "web-search tool for the same facts."
 )
 GPT_OSS_TOOL_PROTOCOL_HINT = (
     "Use the provided function-calling protocol for tools. Do not emit Harmony "
@@ -168,14 +181,26 @@ def _env_truthy(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 def _antigravity_google_grounding_mode() -> str:
-    """Return google_search grounding mode for Antigravity Gemini requests."""
+    """Return google_search grounding mode for Antigravity Gemini requests.
+
+    Modes:
+      off    — never attach google_search.
+      auto   — attach only when the request text matches a search-intent keyword
+               (conservative; saves tokens on pure chatter).
+      smart  — always attach google_search and let the MODEL decide whether to
+               actually search (no hardcoded keyword gate). Function tools are
+               preserved so the agent keeps its other capabilities.
+      always — attach google_search on every request unconditionally.
+    """
 
     explicit = os.getenv("HERMES_ANTIGRAVITY_GOOGLE_GROUNDING", "").strip().lower()
     if explicit in {"0", "false", "no", "off", "never", "disabled"}:
         return "off"
     if explicit in {"1", "true", "yes", "on", "always", "force"}:
         return "always"
-    if explicit in {"auto", "smart", "detect", "detected"}:
+    if explicit in {"smart", "model", "auto-model", "model-decides", "self"}:
+        return "smart"
+    if explicit in {"auto", "detect", "detected", "keyword"}:
         return "auto"
     if _env_truthy("HERMES_GOOGLE_GROUNDING_SEARCH_ENABLED", False):
         return "auto"
@@ -215,6 +240,25 @@ def _has_google_search_tool(request: Dict[str, Any]) -> bool:
     if not isinstance(tools, list):
         return False
     return any(isinstance(tool, dict) and isinstance(tool.get("google_search"), dict) for tool in tools)
+
+def _request_has_function_tools(request: Dict[str, Any]) -> bool:
+    """True if the request carries any callable function tool (not just built-ins
+    like google_search). Covers both Gemini-native functionDeclarations and the
+    OpenAI-style function/custom shapes that may not be translated yet."""
+    tools = request.get("tools")
+    if not isinstance(tools, list):
+        return False
+    for tool in tools:
+        if not isinstance(tool, dict):
+            continue
+        if isinstance(tool.get("google_search"), dict):
+            continue
+        fds = tool.get("functionDeclarations")
+        if isinstance(fds, list) and fds:
+            return True
+        if any(k in tool for k in ("function", "custom", "parameters", "input_schema", "inputSchema", "name")):
+            return True
+    return False
 
 def _suppress_external_search_tools_for_grounding() -> bool:
     return _env_truthy("HERMES_ANTIGRAVITY_GROUNDING_SUPPRESS_EXTERNAL_SEARCH_TOOLS", True)
@@ -290,7 +334,9 @@ def _maybe_enable_google_grounding(request: Dict[str, Any], *, model: str) -> No
     mode = _antigravity_google_grounding_mode()
     if mode == "off":
         return
-    if mode != "always" and not _request_wants_google_grounding(request):
+    # auto: gate on detected search intent. smart/always: attach unconditionally
+    # and let the model decide whether to actually search.
+    if mode == "auto" and not _request_wants_google_grounding(request):
         return
     tools = request.setdefault("tools", [])
     if not isinstance(tools, list):
@@ -299,6 +345,14 @@ def _maybe_enable_google_grounding(request: Dict[str, Any], *, model: str) -> No
         tools.append({"google_search": {}})
     if _suppress_external_search_tools_for_grounding():
         _drop_external_search_tools(request)
+    # The Antigravity Cloud Code PA endpoint cannot mix the built-in google_search
+    # tool with function declarations: it rejects the request with
+    # "enable tool_config.include_server_side_tool_invocations to use Built-in
+    # tools with Function calling", and that flag is itself rejected as an unknown
+    # field. So whenever grounding is active we must narrow to the grounded tool
+    # only (drop function tools), for smart mode too — otherwise the request 400s
+    # and silently falls back to ungrounded answers (the model then hallucinates
+    # instead of searching). This is the verified-safe behavior.
     if _suppress_function_tools_for_grounding():
         _drop_function_tools_for_grounding(request)
     _append_system_text(request, ANTIGRAVITY_GOOGLE_GROUNDING_HINT)
