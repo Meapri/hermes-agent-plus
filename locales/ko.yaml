@@ -436,6 +436,7 @@ gateway:
     invalid_model_index: "잘못된 모델 인덱스입니다."
     picker_expired: "선택기가 만료되었습니다."
     model_switched: "모델이 전환되었습니다!"
+    model_switch_failed: "전환에 실패했습니다."
     group_not_found: "그룹을 찾을 수 없습니다."
     model_selection_cancelled: "모델 선택이 취소되었습니다."
     invalid_approval_data: "잘못된 승인 데이터입니다."
