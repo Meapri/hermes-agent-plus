@@ -1150,8 +1150,6 @@ export const ko: Translations = {
   cron: {
     close: '크론 닫기',
     search: '크론 작업 검색...',
-    refresh: '크론 작업 새로고침',
-    refreshing: '크론 작업 새로고침 중',
     loading: '크론 작업 로딩 중...',
     states: {
       enabled: '활성화됨',
@@ -1204,9 +1202,7 @@ export const ko: Translations = {
     monthlyOnDayAt: (dayOfMonth, time) => `매월 ${dayOfMonth}일 ${time}`,
     topOfHour: '매시간 정각',
     everyHourAt: minute => `매시간 ${minute}분`,
-    active: (enabled, total) => `${enabled}/${total} 활성`,
     newCron: '새 크론',
-    createFirst: '첫 크론 작업 생성',
     emptyDescNew:
       '크론 표현식으로 프롬프트 실행을 예약하세요. Hermes가 이를 실행하고 선택한 대상에 결과를 전달합니다.',
     emptyDescSearch: '더 넓은 검색어를 사용해 보세요.',
@@ -1779,8 +1775,6 @@ export const ko: Translations = {
     loadingTree: '파일 트리 로딩 중',
     loadingFiles: '파일 로딩 중',
     terminalHide: '터미널 숨기기',
-    terminalFocus: '터미널 뷰 포커스',
-    terminalSplit: '분할 뷰로 돌아가기',
     addToChat: '채팅에 추가'
   },
 
