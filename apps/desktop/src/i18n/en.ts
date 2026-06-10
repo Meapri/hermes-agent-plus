@@ -1274,7 +1274,10 @@ export const en: Translations = {
       pydeps: 'Finishing up…',
       restart: 'Restarting Hermes…',
       manual: 'Update from your terminal',
-      error: 'Update paused'
+      error: 'Update paused',
+      update: 'Updating Hermes…',
+      rebuild: 'Rebuilding desktop app…',
+      done: 'Update complete'
     },
     checking: 'Looking for updates…',
     checkFailedTitle: 'Couldn’t check for updates',

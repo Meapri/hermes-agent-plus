@@ -1487,7 +1487,10 @@ export const ko: Translations = {
       pydeps: '마무리 중…',
       restart: 'Hermes 재시작 중…',
       manual: '터미널에서 업데이트',
-      error: '업데이트 일시 중지됨'
+      error: '업데이트 일시 중지됨',
+      update: 'Hermes 업데이트 중…',
+      rebuild: '데스크탑 앱 재빌드 중…',
+      done: '업데이트 완료'
     },
     checking: '업데이트 확인 중…',
     checkFailedTitle: '업데이트를 확인할 수 없음',

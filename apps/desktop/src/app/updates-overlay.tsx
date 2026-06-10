@@ -61,14 +61,16 @@ export function UpdatesOverlay() {
 
   const behind = status?.behind ?? 0
 
-  const phase: 'idle' | 'applying' | 'manual' | 'error' =
+  const phase: 'idle' | 'applying' | 'manual' | 'error' | 'done' =
     apply.stage === 'manual'
       ? 'manual'
       : apply.applying || apply.stage === 'restart'
         ? 'applying'
         : apply.stage === 'error'
           ? 'error'
-          : 'idle'
+          : apply.stage === 'done'
+            ? 'done'
+            : 'idle'
 
   const handleClose = (next: boolean) => {
     if (phase === 'applying') {
@@ -77,7 +79,7 @@ export function UpdatesOverlay() {
 
     setUpdateOverlayOpen(next)
 
-    if (!next && (apply.stage === 'error' || apply.stage === 'restart' || apply.stage === 'manual')) {
+    if (!next && (apply.stage === 'error' || apply.stage === 'restart' || apply.stage === 'manual' || apply.stage === 'done')) {
       resetUpdateApplyState()
     }
   }
@@ -100,6 +102,10 @@ export function UpdatesOverlay() {
 
         {phase === 'error' && (
           <ErrorView message={apply.message} onDismiss={() => handleClose(false)} onRetry={handleInstall} />
+        )}
+
+        {phase === 'done' && (
+          <DoneView message={apply.message} onDismiss={() => handleClose(false)} />
         )}
 
         {phase === 'idle' && (
@@ -369,6 +375,24 @@ function ErrorView({ message, onDismiss, onRetry }: { message: string; onDismiss
         {u.notNow}
       </Button>
     </ErrorState>
+  )
+}
+
+function DoneView({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  const { t } = useI18n()
+  const u = t.updates
+
+  return (
+    <CenteredStatus
+      action={
+        <Button className="font-semibold" onClick={onDismiss} size="lg" variant="secondary">
+          {u.done}
+        </Button>
+      }
+      body={message || u.applyingBodyBackend}
+      icon={<CheckCircle2 className="size-7 text-emerald-600 dark:text-emerald-400" />}
+      title={u.allSetTitle}
+    />
   )
 }
 
