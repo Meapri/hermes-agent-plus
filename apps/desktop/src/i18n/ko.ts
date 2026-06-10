@@ -1,4 +1,4 @@
-import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
+import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import type { Translations } from './types'
 
@@ -301,10 +301,230 @@ export const ko: Translations = {
       technical: '기술적',
       technicalDesc: '원시 도구 인자/결과 및 저수준 세부 정보를 포함합니다.',
       themeTitle: '테마',
-      themeDesc: '데스크톱 팔레트 전용입니다. 선택한 모드가 그 위에 적용됩니다.'
+      themeDesc: '데스크톱 팔레트 전용입니다. 선택한 모드가 그 위에 적용됩니다.',
+      themeProfileNote: profile => `"${profile}" 프로필에 저장됨 — 각 프로필마다 고유한 테마가 유지됩니다.`,
+      installTitle: 'VS Code에서 설치',
+      installDesc: 'Marketplace 확장 ID(예: dracula-theme.theme-dracula)를 붙여넣어 색상 테마를 데스크톱 팔레트로 변환하세요.',
+      installPlaceholder: 'publisher.extension',
+      installButton: '설치',
+      installing: '설치 중…',
+      installError: '해당 테마를 설치할 수 없습니다.',
+      installed: name => `"${name}" 설치됨.`,
+      removeTheme: '테마 제거',
+      importedBadge: '가져온 테마'
     },
-    fieldLabels: FIELD_LABELS,
-    fieldDescriptions: FIELD_DESCRIPTIONS,
+    fieldLabels: defineFieldCopy({
+      model: '기본 모델',
+      modelContextLength: '컨텍스트 윈도우',
+      fallbackProviders: '대체 모델',
+      toolsets: '활성화된 도구 세트',
+      timezone: '시간대',
+      display: {
+        personality: '퍼스낼리티',
+        showReasoning: '추론 과정 블록'
+      },
+      agent: {
+        maxTurns: '최대 에이전트 단계',
+        imageInputMode: '이미지 첨부',
+        apiMaxRetries: 'API 재시도 횟수',
+        serviceTier: '서비스 티어',
+        toolUseEnforcement: '도구 사용 강제'
+      },
+      terminal: {
+        cwd: '작업 디렉토리',
+        backend: '실행 백엔드',
+        timeout: '명령어 타임아웃',
+        persistentShell: '영구 셸',
+        envPassthrough: '환경 변수 전달',
+        dockerImage: 'Docker 이미지',
+        singularityImage: 'Singularity 이미지',
+        modalImage: 'Modal 이미지',
+        daytonaImage: 'Daytona 이미지'
+      },
+      fileReadMaxChars: '파일 읽기 한도',
+      toolOutput: {
+        maxBytes: '터미널 출력 한도',
+        maxLines: '파일 페이지 한도',
+        maxLineLength: '줄 길이 한도'
+      },
+      codeExecution: {
+        mode: '코드 실행 모드'
+      },
+      approvals: {
+        mode: '승인 모드',
+        timeout: '승인 타임아웃',
+        mcpReloadConfirm: 'MCP 재로드 확인'
+      },
+      commandAllowlist: '명령어 허용 목록',
+      security: {
+        redactSecrets: '시크릿 숨기기',
+        allowPrivateUrls: '비공개 URL 허용'
+      },
+      browser: {
+        allowPrivateUrls: '브라우저 비공개 URL',
+        autoLocalForPrivateUrls: '비공개 URL에 로컬 브라우저 사용'
+      },
+      checkpoints: {
+        enabled: '파일 체크포인트',
+        maxSnapshots: '체크포인트 한도'
+      },
+      voice: {
+        recordKey: '음성 단축키',
+        maxRecordingSeconds: '최대 녹음 시간',
+        autoTts: '응답 음성으로 읽기'
+      },
+      stt: {
+        enabled: '음성-텍스트 변환',
+        provider: '음성-텍스트 제공자',
+        local: {
+          model: '로컬 전사 모델',
+          language: '전사 언어'
+        },
+        openai: {
+          model: 'OpenAI STT 모델'
+        },
+        groq: {
+          model: 'Groq STT 모델'
+        },
+        mistral: {
+          model: 'Mistral STT 모델'
+        },
+        elevenlabs: {
+          modelId: 'ElevenLabs STT 모델',
+          languageCode: 'ElevenLabs 언어',
+          tagAudioEvents: '오디오 이벤트 태그',
+          diarize: '화자 분리'
+        }
+      },
+      tts: {
+        provider: '텍스트-음성 변환 제공자',
+        edge: {
+          voice: 'Edge 음성'
+        },
+        openai: {
+          model: 'OpenAI TTS 모델',
+          voice: 'OpenAI 음성'
+        },
+        elevenlabs: {
+          voiceId: 'ElevenLabs 음성',
+          modelId: 'ElevenLabs 모델'
+        },
+        xai: {
+          voiceId: 'xAI (Grok) 음성',
+          language: 'xAI 언어'
+        },
+        minimax: {
+          model: 'MiniMax TTS 모델',
+          voiceId: 'MiniMax 음성'
+        },
+        mistral: {
+          model: 'Mistral TTS 모델',
+          voiceId: 'Mistral 음성'
+        },
+        gemini: {
+          model: 'Gemini TTS 모델',
+          voice: 'Gemini 음성'
+        },
+        neutts: {
+          model: 'NeuTTS 모델',
+          device: 'NeuTTS 장치'
+        },
+        kittentts: {
+          model: 'KittenTTS 모델',
+          voice: 'KittenTTS 음성'
+        },
+        piper: {
+          voice: 'Piper 음성'
+        }
+      },
+      memory: {
+        memoryEnabled: '영구 메모리',
+        userProfileEnabled: '사용자 프로필',
+        memoryCharLimit: '메모리 한도',
+        userCharLimit: '프로필 한도',
+        provider: '메모리 제공자'
+      },
+      context: {
+        engine: '컨텍스트 엔진'
+      },
+      compression: {
+        enabled: '자동 압축',
+        threshold: '압축 임계값',
+        targetRatio: '압축 목표',
+        protectLastN: '최근 메시지 보호'
+      },
+      delegation: {
+        model: '하위 에이전트 모델',
+        provider: '하위 에이전트 제공자',
+        maxIterations: '하위 에이전트 턴 한도',
+        maxConcurrentChildren: '병렬 하위 에이전트',
+        childTimeoutSeconds: '하위 에이전트 타임아웃',
+        reasoningEffort: '하위 에이전트 추론 강도'
+      },
+      updates: {
+        nonInteractiveLocalChanges: '앱 내 업데이트 로컬 변경'
+      }
+    }),
+    fieldDescriptions: defineFieldCopy({
+      model: '작성기에서 다른 모델을 선택하지 않으면 새 채팅에 사용됩니다.',
+      modelContextLength: '0으로 설정하면 선택한 모델의 감지된 컨텍스트 윈도우를 사용합니다.',
+      fallbackProviders: '기본 모델이 실패할 경우 시도할 대체 provider:model 항목입니다.',
+      display: {
+        personality: '새 세션의 기본 어시스턴트 스타일.',
+        showReasoning: '백엔드에서 추론 내용을 제공할 때 표시합니다.'
+      },
+      timezone: 'Hermes가 로컬 시간 컨텍스트가 필요할 때 사용됩니다. 비워두면 시스템 시간대를 사용합니다.',
+      agent: {
+        imageInputMode: '이미지 첨부 파일을 모델에 전송하는 방법을 제어합니다.',
+        maxTurns: 'Hermes가 실행을 중지하기 전 도구 호출 턴의 상한선.'
+      },
+      terminal: {
+        cwd: '도구 및 터미널 작업의 기본 프로젝트 폴더.',
+        persistentShell: '백엔드가 지원할 때 명령어 사이에 셸 상태를 유지합니다.',
+        envPassthrough: '도구 실행에 전달할 환경 변수.',
+        dockerImage: '실행 백엔드가 Docker일 때 사용하는 컨테이너 이미지.',
+        singularityImage: '실행 백엔드가 Singularity일 때 사용하는 이미지.',
+        modalImage: '실행 백엔드가 Modal일 때 사용하는 이미지.',
+        daytonaImage: '실행 백엔드가 Daytona일 때 사용하는 이미지.'
+      },
+      codeExecution: {
+        mode: '코드 실행이 현재 프로젝트로 제한되는 엄격도.'
+      },
+      fileReadMaxChars: 'Hermes가 하나의 파일 요청에서 읽을 수 있는 최대 문자 수.',
+      approvals: {
+        mode: 'Hermes가 명시적 승인이 필요한 명령어를 처리하는 방법.',
+        timeout: '승인 프롬프트가 타임아웃 전까지 기다리는 시간.'
+      },
+      security: {
+        redactSecrets: '가능한 경우 모델에 보이는 콘텐츠에서 감지된 시크릿을 숨깁니다.'
+      },
+      checkpoints: {
+        enabled: '파일 편집 전에 롤백 스냅샷을 생성합니다.'
+      },
+      memory: {
+        memoryEnabled: '향후 세션에 도움이 되는 영구 메모리를 저장합니다.',
+        userProfileEnabled: '사용자 선호도의 간략한 프로필을 유지합니다.'
+      },
+      context: {
+        engine: '컨텍스트 한도 근처에서 긴 대화를 관리하는 전략.'
+      },
+      compression: {
+        enabled: '대화가 길어지면 오래된 컨텍스트를 요약합니다.'
+      },
+      voice: {
+        autoTts: '어시스턴트 응답을 자동으로 음성으로 읽습니다.'
+      },
+      stt: {
+        enabled: '로컬 또는 제공자 기반 음성 전사를 활성화합니다.',
+        elevenlabs: {
+          languageCode: '선택적 ISO-639-3 언어 코드. 비워두면 ElevenLabs가 자동 감지합니다.'
+        }
+      },
+      updates: {
+        nonInteractiveLocalChanges:
+          'Hermes가 앱 내에서 업데이트할 때(터미널 프롬프트 없이) 로컬 소스 편집을 보관(스태시)하거나 버립니다(폐기). 터미널 업데이트는 항상 물어봅니다.'
+      }
+    }),
     about: {
       heading: 'Hermes Desktop',
       version: value => `버전 ${value}`,
@@ -648,6 +868,17 @@ export const ko: Translations = {
     settings: '설정',
     changeTheme: '테마 변경...',
     changeColorMode: '색상 모드 변경...',
+    installTheme: {
+      title: '테마 설치...',
+      placeholder: 'VS Code Marketplace 검색...',
+      loading: 'Marketplace 검색 중...',
+      error: 'Marketplace에 연결할 수 없습니다.',
+      empty: '일치하는 테마가 없습니다.',
+      install: '설치',
+      installing: '설치 중...',
+      installed: '설치됨',
+      installs: count => `${count}회 설치`
+    },
     settingsFields: '설정 필드',
     mcpServers: 'MCP 서버',
     archivedChats: '보관된 채팅',
@@ -1271,6 +1502,7 @@ export const ko: Translations = {
     availableBody: '새 버전의 Hermes를 설치할 준비가 되었습니다.',
     availableTitleBackend: '백엔드 업데이트 사용 가능',
     availableBodyBackend: '연결된 Hermes 백엔드의 새 버전을 설치할 준비가 되었습니다.',
+    availableBodyNoChangelog: '새 버전이 준비되었습니다. 이 설치 유형에는 릴리스 노트를 사용할 수 없습니다.',
     updateNow: '지금 업데이트',
     maybeLater: '나중에',
     moreChanges: count => `+ ${count}개의 변경 사항이 더 포함되었습니다.`,
@@ -1285,7 +1517,15 @@ export const ko: Translations = {
     applyingClose: '업데이트를 적용하기 위해 Hermes가 닫힙니다.',
     errorTitle: '업데이트가 완료되지 않음',
     errorBody: '걱정 마세요. 잃어버린 항목은 없습니다. 지금 다시 시도할 수 있습니다.',
-    notNow: '지금 안 함'
+    notNow: '지금 안 함',
+    applyStatus: {
+      preparing: '백엔드 업데이트 중…',
+      pulling: '백엔드 업데이트 중…',
+      restarting: '업데이트 로드를 위해 백엔드가 재시작 중…',
+      notAvailable: '이 백엔드에는 업데이트를 사용할 수 없습니다.',
+      failed: '백엔드 업데이트 실패.',
+      noReturn: '백엔드가 다시 온라인 상태가 되지 않았습니다. 업데이트가 완료되지 않았을 수 있습니다 — 백엔드 호스트를 확인하세요.'
+    }
   },
 
   install: {
@@ -1471,10 +1711,15 @@ export const ko: Translations = {
       updateInProgress: '업데이트 진행 중',
       commitsBehind: (count, branch) => `${branch}보다 ${count} 커밋 뒤쳐짐`,
       desktopVersion: version => `Hermes Desktop v${version}`,
+      backendVersion: version => `백엔드 v${version}`,
+      clientLabel: version => `클라이언트 v${version}`,
+      backendLabel: version => `백엔드 v${version}`,
       commit: sha => `커밋 ${sha}`,
       branch: branch => `브랜치 ${branch}`,
       closeCommandCenter: '커맨드 센터 닫기',
       openCommandCenter: '커맨드 센터 열기',
+      showTerminal: '터미널 표시',
+      hideTerminal: '터미널 숨기기',
       gateway: '게이트웨이',
       gatewayReady: '준비됨',
       gatewayNeedsSetup: '설정 필요',
